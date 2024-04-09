@@ -1,0 +1,35 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:14.5-alpine3.16
+    ports:
+      - "5431:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgres/data
+
+  retail_project:
+    build: ./retail_project/
+    command: gunicorn retail_project.wsgi:application --bind 0.0.0.0:8000
+    env_file:
+      - .env
+    volumes:
+      - ./retail_project/static/:/app/static/
+    expose:
+      - 8000
+    depends_on:
+      - db
+
+  nginx:
+    build: ./nginx
+    volumes:
+      - ./retail_project/static/:/app/static/
+    ports:
+      - "8080:80"
+    depends_on:
+      - retail_project
+volumes:
+  pgdata:
