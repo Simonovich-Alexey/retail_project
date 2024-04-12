@@ -1,6 +1,9 @@
 from django.db import models
 
 
+from django.db import models
+
+
 class Shop(models.Model):
     objects = models.manager.Manager()
     name = models.CharField(max_length=100)
@@ -92,3 +95,4 @@ class Contact(models.Model):
     house = models.CharField(max_length=100, verbose_name='Дом')
     apartment = models.CharField(max_length=100, verbose_name='Квартира')
     phone = models.CharField(max_length=100, verbose_name='Телефон')
+
