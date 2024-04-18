@@ -6,7 +6,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail, EmailMultiAlternatives
 
 from users.models import User
@@ -21,7 +20,7 @@ class RegisterViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        print(serializer.is_valid())
+        print(serializer)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

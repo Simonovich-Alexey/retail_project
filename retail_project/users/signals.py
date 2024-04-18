@@ -13,18 +13,18 @@ def new_user_registered_signal(sender: Type[User], instance: User, created: bool
     """
      отправляем письмо с подтрердждением почты
     """
-    if created and not instance.is_active:
+    if created and not instance.is_verified:
         # send an e-mail to the user
         token = 'sadafgsgd'
-
-        msg = EmailMultiAlternatives(
-            # title:
-            f"Password Reset Token for {instance.email}",
-            # message:
-            token,
-            # from:
-            settings.EMAIL_HOST_USER,
-            # to:
-            [instance.email]
-        )
-        msg.send()
+        print(token)
+        # msg = EmailMultiAlternatives(
+        #     # title:
+        #     f"Password Reset Token for {instance.email}",
+        #     # message:
+        #     token,
+        #     # from:
+        #     settings.EMAIL_HOST_USER,
+        #     # to:
+        #     [instance.email]
+        # )
+        # msg.send()
