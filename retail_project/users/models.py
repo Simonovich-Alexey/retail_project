@@ -5,6 +5,8 @@ from django.utils.translation import gettext_lazy
 
 
 class UserManager(BaseUserManager):
+    use_in_migrations = True
+
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise gettext_lazy(ValueError('Users must have an email address'))
@@ -26,7 +28,7 @@ class UserManager(BaseUserManager):
         return user
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class CastomUser(AbstractBaseUser, PermissionsMixin):
     """
     Пользовательская модель пользователя
     """
@@ -39,8 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(verbose_name='E-mail', unique=True, db_index=True)
     first_name = models.CharField(verbose_name='Имя', max_length=100)
     last_name = models.CharField(verbose_name='Фамилия', max_length=100)
-    is_verified = models.BooleanField(verbose_name='Подтвержденный', default=False)
-    is_active = models.BooleanField(verbose_name='Активный', default=True)
+    is_active = models.BooleanField(verbose_name='Активный', default=False)
     is_staff = models.BooleanField(verbose_name='Сотрудник', default=False)
     type = models.CharField(verbose_name='Тип пользователя', choices=UserType.choices,
                             default=UserType.buyer, max_length=10)
