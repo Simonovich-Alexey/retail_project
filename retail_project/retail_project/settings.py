@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'rest_framework.authtoken',
     'djoser',
 
     'api_orders',
@@ -152,6 +153,20 @@ DJOSER = {
     'SEND_ACTIVATION_EMAIL': True,
     'SERIALIZERS': {
         'user_create': 'users.serializers.RegisterSerializer',
+        # 'user': 'users.serializers.RegisterSerializer',
+        'current_user': 'users.serializers.ChangeUserSerializer',
+        # 'user_delete': 'djoser.serializers.UserDeleteSerializer',
+        # 'activation': 'djoser.serializers.ActivationSerializer',
+        # 'password_reset': 'djoser.serializers.SendEmailResetSerializer',
+        # 'password_reset_confirm': 'djoser.serializers.PasswordResetConfirmSerializer',
+        # 'set_password': 'djoser.serializers.SetPasswordSerializer',
+        # 'set_password_confirm': 'djoser.serializers.SetPasswordConfirmSerializer',
+        # 'username_reset': 'djoser.serializers.SendEmailResetSerializer',
+        # 'username_reset_confirm': 'djoser.serializers.UsernameResetConfirmSerializer',
+        # 'set_username': 'djoser.serializers.SetUsernameSerializer',
+        # 'set_username_confirm': 'djoser.serializers.SetUsernameConfirmSerializer',
+        # 'token_create': 'users.serializers.TokenCreateSerializer',
+        'token_destroy': 'djoser.serializers.TokenDestroySerializer',
     }
 }
 
