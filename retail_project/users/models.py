@@ -28,7 +28,7 @@ class UserManager(BaseUserManager):
         return user
 
 
-class CastomUser(AbstractBaseUser, PermissionsMixin):
+class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Пользовательская модель пользователя
     """
@@ -41,10 +41,10 @@ class CastomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(verbose_name='E-mail', unique=True, db_index=True)
     first_name = models.CharField(verbose_name='Имя', max_length=100)
     last_name = models.CharField(verbose_name='Фамилия', max_length=100)
-    is_active = models.BooleanField(verbose_name='Активный', default=False)
+    is_active = models.BooleanField(verbose_name='Активированный', default=False)
     is_staff = models.BooleanField(verbose_name='Сотрудник', default=False)
-    type = models.CharField(verbose_name='Тип пользователя', choices=UserType.choices,
-                            default=UserType.buyer, max_length=10)
+    type_user = models.CharField(verbose_name='Тип пользователя', choices=UserType.choices,
+                            max_length=10)
     created_at = models.DateTimeField(verbose_name='Дата создания', auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name='Дата обновления', auto_now=True)
 

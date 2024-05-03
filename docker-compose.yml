@@ -31,5 +31,12 @@ services:
       - "8080:80"
     depends_on:
       - retail_project
+
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "16379:6379"
+
 volumes:
   pgdata:

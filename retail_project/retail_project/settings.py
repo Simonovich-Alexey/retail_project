@@ -30,7 +30,7 @@ DEBUG = os.getenv('DEBUG')
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
-AUTH_USER_MODEL = 'users.CastomUser'
+AUTH_USER_MODEL = 'users.CustomUser'
 
 # Application definition
 
@@ -44,7 +44,6 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework.authtoken',
-    'djoser',
 
     'api_orders',
     'users',
@@ -146,27 +145,10 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-DJOSER = {
-    'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
-    'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
-    'ACTIVATION_URL': '#/activate/{uid}/{token}',
-    'SEND_ACTIVATION_EMAIL': True,
-    'SERIALIZERS': {
-        'user_create': 'users.serializers.RegisterSerializer',
-        # 'user': 'users.serializers.RegisterSerializer',
-        'current_user': 'users.serializers.ChangeUserSerializer',
-        # 'user_delete': 'djoser.serializers.UserDeleteSerializer',
-        # 'activation': 'djoser.serializers.ActivationSerializer',
-        # 'password_reset': 'djoser.serializers.SendEmailResetSerializer',
-        # 'password_reset_confirm': 'djoser.serializers.PasswordResetConfirmSerializer',
-        # 'set_password': 'djoser.serializers.SetPasswordSerializer',
-        # 'set_password_confirm': 'djoser.serializers.SetPasswordConfirmSerializer',
-        # 'username_reset': 'djoser.serializers.SendEmailResetSerializer',
-        # 'username_reset_confirm': 'djoser.serializers.UsernameResetConfirmSerializer',
-        # 'set_username': 'djoser.serializers.SetUsernameSerializer',
-        # 'set_username_confirm': 'djoser.serializers.SetUsernameConfirmSerializer',
-        # 'token_create': 'users.serializers.TokenCreateSerializer',
-        'token_destroy': 'djoser.serializers.TokenDestroySerializer',
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://localhost:16379/1',
     }
 }
 

@@ -1,45 +1,71 @@
-from requests import Request
 from rest_framework import serializers
+from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
-from .models import CastomUser
+from .models import CustomUser
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = CastomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'password', 'type']
+        model = CustomUser
+        fields = ['id', 'email', 'first_name', 'last_name', 'password', 'type_user']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
 
     def create(self, validated_data):
-        return CastomUser.objects.create_user(**validated_data)
+        return CustomUser.objects.create_user(**validated_data)
 
     def update(self, instance, validated_data):
+        email = super().validate(validated_data.get('email'))
+
+        if email:
+            instance.is_active = False
+
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.type = validated_data.get('type', instance.type)
+        instance.type_user = validated_data.get('type_user', instance.type_user)
         instance.save()
         return instance
 
 
-class ChangeUserSerializer(serializers.Serializer):
-
-    first_name = serializers.CharField(max_length=100)
-    last_name = serializers.CharField(max_length=100)
-    type = serializers.CharField(max_length=10)
-    password = serializers.CharField(min_length=8, max_length=64, write_only=True)
-    email = serializers.EmailField(write_only=True)
+class ActivationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    key = serializers.CharField(required=False)
 
     def validate(self, data):
-        if data.get('password'):
-            raise serializers.ValidationError('You cannot change password')
-        if data.get('email'):
-            raise serializers.ValidationError('You cannot change email')
-        return data
+        try:
+            self.email = CustomUser.objects.get(email=data.get('email'))
+        except CustomUser.DoesNotExist:
+            raise ValidationError({'message': 'Пользователь не найден'})
 
-    def update(self, instance, validated_data):
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.type = validated_data.get('type', instance.type)
-        instance.save()
-        return instance
+        if not self.email.is_active:
+            return data
+        else:
+            raise ValidationError({'message': 'Пользователь уже активирован'})
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        self.email = CustomUser.objects.filter(email=email).first()
+        if self.email:
+            if self.email.is_active:
+                if self.email.check_password(password):
+                    data['user'] = self.email
+                    return data
+            raise ValidationError({'message': 'Пользователь не активирован'})
+        raise ValidationError({'message': 'Неверная почта или пароль'})
+
+
+class LogoutSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['email']
