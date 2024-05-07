@@ -1,13 +1,19 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from users.views import CustomUserViewSet, LoginViewSet, LogoutViewSet
+from users.views import RegisterUserViewSet, LoginViewSet, LogoutViewSet, ProfileViewSet
 
 router = DefaultRouter()
-router.register('users', CustomUserViewSet, basename='users')
-router.register('token/login', LoginViewSet, basename='login')
-router.register('token/logout', LogoutViewSet, basename='logout')
+router.register('register', RegisterUserViewSet, basename='register')
+router.register('login', LoginViewSet, basename='login')
+router.register('logout', LogoutViewSet, basename='logout')
+router.register('profile', ProfileViewSet, basename='profile')
 
+# urlpatterns = [
+#     path('register/', RegisterUserViewSet.as_view(), name='register'),
+# ]
 urlpatterns = router.urls
+# urlpatterns += router.urls
 
 
 # Регистрация POST запрос (автоматическая отправка почты после регистрации)

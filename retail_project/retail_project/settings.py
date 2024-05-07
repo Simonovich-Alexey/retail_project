@@ -145,6 +145,9 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+ACTIVATION_EMAIL = False
+PASSWORD_RESET_EMAIL = False
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
