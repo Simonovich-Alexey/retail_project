@@ -87,12 +87,3 @@ class ProductParameter(models.Model):
             models.UniqueConstraint(fields=['product_info', 'parameter'], name='unique_product_parameter'),
         ]
 
-
-class Contact(models.Model):
-    objects = models.manager.Manager()
-    city = models.CharField(max_length=100, verbose_name='Город')
-    street = models.CharField(max_length=100, verbose_name='Улиц')
-    house = models.CharField(max_length=100, verbose_name='Дом')
-    apartment = models.CharField(max_length=100, verbose_name='Квартира')
-    phone = models.CharField(max_length=100, verbose_name='Телефон')
-

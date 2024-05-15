@@ -120,7 +120,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get('email')
-        if email and email != user.email and settings.ACTIVATION_EMAIL:
+        if email and email != user.email:
             serializer.is_active = False
             Token.objects.filter(user=user).delete()
             email_activation(email, settings.EMAIL_HOST_USER)

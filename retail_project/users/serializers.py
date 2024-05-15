@@ -8,7 +8,7 @@ from .models import CustomUser
 class RegisterUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'password', 'type_user']
+        fields = ['id', 'email', 'phone', 'first_name', 'last_name', 'password', 'type_user']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
 
     def create(self, validated_data):
@@ -71,7 +71,7 @@ class LogoutSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['email', 'first_name', 'last_name', 'type_user']
+        fields = ['email', 'phone', 'first_name', 'last_name', 'type_user']
 
 
 class PasswordResetSerializer(serializers.Serializer):
@@ -104,8 +104,3 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise ValidationError({'message': 'Пароли не совпадают'})
 
         return attrs
-
-    # def update(self, instance, validated_data):
-    #     instance.password(validated_data.get('new_password'))
-    #     instance.save()
-    #     return instance
