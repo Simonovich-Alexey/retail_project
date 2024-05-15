@@ -12,7 +12,7 @@ from retail_project import settings
 from .models import CustomUser
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, LogoutSerializer, RegisterUserSerializer, \
-    ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer
+    ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 from .email import email_activation, password_reset
 
 
@@ -32,8 +32,7 @@ class RegisterUserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer, *args, **kwargs):
         user = serializer.save(*args, **kwargs)
-        if settings.ACTIVATION_EMAIL:
-            email_activation(user, settings.EMAIL_HOST_USER)
+        email_activation(user, settings.EMAIL_HOST_USER)
 
     @action(methods=['post'], detail=False)
     def resend_activation(self, request):
@@ -41,11 +40,8 @@ class RegisterUserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user_email = serializer.validated_data['email']
 
-        if settings.ACTIVATION_EMAIL:
-            email_activation(user_email, settings.EMAIL_HOST_USER)
-            return Response({'message': 'Письмо отправлено'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'message': 'Активация не требуется'}, status=status.HTTP_400_BAD_REQUEST)
+        email_activation(user_email, settings.EMAIL_HOST_USER)
+        return Response({'message': 'Письмо отправлено'}, status=status.HTTP_200_OK)
 
     @action(methods=["post"], detail=False)
     def activation(self, request):
@@ -100,10 +96,20 @@ class ProfileViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'patch', 'delete', 'post']
 
     def get_serializer_class(self):
-        if self.action == 'destroy':
-            return self.serializer_class
-        elif self.action == 'password_reset':
+        if self.action == 'password_reset':
             return PasswordResetSerializer
+        elif self.action == 'password_reset_confirm':
+            return PasswordResetConfirmSerializer
+
+        return self.serializer_class
+
+    def get_permissions(self):
+        if self.action == 'password_reset_confirm':
+            return [AllowAny()]
+        return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def list(self, request, *args, **kwargs):
         user = self.queryset.get(id=request.user.id)
@@ -134,9 +140,26 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user_email = serializer.validated_data['email']
 
-        if settings.PASSWORD_RESET_EMAIL:
-            Token.objects.filter(user=user).delete()
-            password_reset(user_email, settings.EMAIL_HOST_USER)
-            return Response({'message': 'Письмо для смены пароля отправлено'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'message': 'Смена пароля не требуется'}, status=status.HTTP_400_BAD_REQUEST)
+        if user.email != user_email:
+            return Response({'message': 'Неверная почта'}, status=status.HTTP_400_BAD_REQUEST)
+        password_reset(user_email, settings.EMAIL_HOST_USER)
+
+        return Response({'message': 'Письмо для смены пароля отправлено'}, status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=False)
+    def password_reset_confirm(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        key = serializer.validated_data['key']
+        user = self.queryset.get(email=serializer.validated_data['email'])
+
+        redis_key = cache.get(key)
+        if redis_key and redis_key.get('user_email') == user.email:
+            with transaction.atomic():
+                user.set_password(serializer.validated_data['new_password'])
+                user.save()
+                cache.delete(key)
+                Token.objects.filter(user_id=user.id).delete()
+                return Response({'message': 'Пароль успешно изменен'}, status=status.HTTP_200_OK)
+
+        return Response({'message': 'Неверный ключ смены пароля'}, status=status.HTTP_400_BAD_REQUEST)

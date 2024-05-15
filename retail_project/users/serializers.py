@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -72,13 +71,41 @@ class LogoutSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['email', 'first_name', 'last_name', 'type_user', 'password']
-        extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
+        fields = ['email', 'first_name', 'last_name', 'type_user']
 
 
-class PasswordResetSerializer(serializers.ModelSerializer):
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-    class Meta:
-        model = CustomUser
-        fields = ['email']
-        extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
+    def validate(self, attrs):
+        email = attrs.get('email')
+        self.email = CustomUser.objects.filter(email=email).first()
+        if not self.email:
+            raise ValidationError({'message': 'Пользователь не найден'})
+
+        return attrs
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    key = serializers.CharField(min_length=8, max_length=64)
+    new_password = serializers.CharField(min_length=8, max_length=64)
+    confirm_password = serializers.CharField(min_length=8, max_length=64)
+
+    def validate(self, attrs):
+        new_password = attrs.get('new_password')
+        confirm_password = attrs.get('confirm_password')
+        user = CustomUser.objects.filter(email=attrs.get('email')).first()
+        if not user:
+            raise ValidationError({'message': 'Пользователь не найден'})
+        if user.check_password(new_password):
+            raise ValidationError({'message': 'Новый пароль совпадает с текущим'})
+        if new_password != confirm_password:
+            raise ValidationError({'message': 'Пароли не совпадают'})
+
+        return attrs
+
+    # def update(self, instance, validated_data):
+    #     instance.password(validated_data.get('new_password'))
+    #     instance.save()
+    #     return instance
