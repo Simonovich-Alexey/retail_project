@@ -2,7 +2,7 @@ from django.contrib.auth import login, logout
 from django.core.cache import cache
 from django.db import transaction
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,7 +11,7 @@ from rest_framework.authtoken.models import Token
 from retail_project import settings
 from .models import CustomUser
 from .permissions import CurrentUserOrAdmin, CurrentUser
-from .serializers import ActivationSerializer, LoginSerializer, LogoutSerializer, RegisterUserSerializer, \
+from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 from .email import email_activation, password_reset
 
@@ -32,7 +32,7 @@ class RegisterUserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer, *args, **kwargs):
         user = serializer.save(*args, **kwargs)
-        email_activation(user, settings.EMAIL_HOST_USER)
+        email_activation(user.email, settings.EMAIL_HOST_USER)
 
     @action(methods=['post'], detail=False)
     def resend_activation(self, request):
@@ -49,7 +49,7 @@ class RegisterUserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         key = serializer.validated_data["key"]
 
-        user = serializer.email
+        user = serializer.validated_data["user"]
 
         redis_key = cache.get(key)
         if redis_key and redis_key.get('user_email') == user.email:
@@ -70,7 +70,7 @@ class LoginViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.email
+        user = serializer.validated_data['user']
         token, _ = Token.objects.get_or_create(user=user)
         if token:
             login(request, user)
@@ -78,15 +78,13 @@ class LoginViewSet(viewsets.ModelViewSet):
         return Response({"token": token.key}, status=status.HTTP_200_OK)
 
 
-class LogoutViewSet(viewsets.ModelViewSet):
-    serializer_class = LogoutSerializer
-    queryset = CustomUser.objects.all()
+class LogoutView(views.APIView):
     permission_classes = [CurrentUserOrAdmin]
 
-    def create(self, request, *args, **kwargs):
-        request.user.auth_token.delete()
+    def post(self, request):
+        Token.objects.filter(user=request.user).delete()
         logout(request)
-        return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -109,7 +107,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response({'message': 'Метод не поддерживается'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def list(self, request, *args, **kwargs):
         user = self.queryset.get(id=request.user.id)
@@ -120,13 +118,14 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get('email')
+
         if email and email != user.email:
             serializer.is_active = False
             Token.objects.filter(user=user).delete()
             email_activation(email, settings.EMAIL_HOST_USER)
 
         serializer.save()
-        return Response(self.get_serializer(user).data)
+        return Response(self.get_serializer(user).data, status=status.HTTP_200_OK)
 
     def destroy(self, request, pk='me', *args, **kwargs):
         user = self.queryset.get(id=request.user.id)
@@ -135,13 +134,9 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     @action(methods=['post'], detail=False)
     def password_reset(self, request):
-        user = self.queryset.get(id=request.user.id)
-        serializer = self.get_serializer(user, data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user_email = serializer.validated_data['email']
-
-        if user.email != user_email:
-            return Response({'message': 'Неверная почта'}, status=status.HTTP_400_BAD_REQUEST)
         password_reset(user_email, settings.EMAIL_HOST_USER)
 
         return Response({'message': 'Письмо для смены пароля отправлено'}, status=status.HTTP_200_OK)
@@ -151,7 +146,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         key = serializer.validated_data['key']
-        user = self.queryset.get(email=serializer.validated_data['email'])
+        user = serializer.validated_data['user']
 
         redis_key = cache.get(key)
         if redis_key and redis_key.get('user_email') == user.email:

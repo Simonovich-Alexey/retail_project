@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -13,6 +15,15 @@ class RegisterUserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return CustomUser.objects.create_user(**validated_data)
+
+    def validate(self, attrs):
+        phone = attrs.get('phone')
+        pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
+        result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
+        attrs['phone'] = result_phone
+        if CustomUser.objects.filter(phone=result_phone).exists():
+            raise ValidationError({'message': 'Такой номер уже зарегистрирован'})
+        return super().validate(attrs)
 
 
 class ResendActivationSerializer(serializers.Serializer):
@@ -37,7 +48,7 @@ class ActivationSerializer(serializers.Serializer):
         user = CustomUser.objects.filter(email=attrs.get('email')).first()
         if user:
             if not user.is_active:
-                self.email = user
+                attrs['user'] = user
                 return attrs
             raise ValidationError({'message': 'Пользователь уже активирован'})
         raise ValidationError({'message': 'Пользователь не найден'})
@@ -51,11 +62,11 @@ class LoginSerializer(serializers.Serializer):
         email = attrs.get('email')
         password = attrs.get('password')
 
-        self.email = CustomUser.objects.filter(email=email).first()
-        if self.email:
-            if self.email.is_active:
-                if self.email.check_password(password):
-                    attrs['user'] = self.email
+        user = CustomUser.objects.filter(email=email).first()
+        if user:
+            if user.is_active:
+                if user.check_password(password):
+                    attrs['user'] = user
                     return attrs
             raise ValidationError({'message': 'Пользователь не активирован'})
         raise ValidationError({'message': 'Неверная почта или пароль'})
@@ -73,17 +84,24 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ['email', 'phone', 'first_name', 'last_name', 'type_user']
 
+    def validate(self, attrs):
+        phone = attrs.get('phone')
+        pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
+        result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
+        attrs['phone'] = result_phone
+        return super().validate(attrs)
+
 
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
     def validate(self, attrs):
         email = attrs.get('email')
-        self.email = CustomUser.objects.filter(email=email).first()
-        if not self.email:
-            raise ValidationError({'message': 'Пользователь не найден'})
-
-        return attrs
+        user = CustomUser.objects.filter(email=email).first()
+        if user and user.email == email:
+            attrs['user'] = user
+            return attrs
+        raise ValidationError({'message': 'Неверная почта'})
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
@@ -102,5 +120,5 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise ValidationError({'message': 'Новый пароль совпадает с текущим'})
         if new_password != confirm_password:
             raise ValidationError({'message': 'Пароли не совпадают'})
-
+        attrs['user'] = user
         return attrs

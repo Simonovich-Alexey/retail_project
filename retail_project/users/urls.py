@@ -1,18 +1,18 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from users.views import RegisterUserViewSet, LoginViewSet, LogoutViewSet, ProfileViewSet
+from users.views import RegisterUserViewSet, LoginViewSet, LogoutView, ProfileViewSet
 
 router = DefaultRouter()
 router.register('register', RegisterUserViewSet, basename='register')
 router.register('login', LoginViewSet, basename='login')
-router.register('logout', LogoutViewSet, basename='logout')
 router.register('profile', ProfileViewSet, basename='profile')
 
-# urlpatterns = [
-#     path('register/', RegisterUserViewSet.as_view(), name='register'),
-# ]
-urlpatterns = router.urls
+urlpatterns = [
+    path('logout/', LogoutView.as_view()),
+] + router.urls
+
+# urlpatterns = router.urls
 # urlpatterns += router.urls
 
 

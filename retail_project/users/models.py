@@ -39,7 +39,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     username_validator = UnicodeUsernameValidator()
     username = models.CharField(verbose_name='Имя пользователя', max_length=150, validators=[username_validator])
     email = models.EmailField(verbose_name='E-mail', unique=True, db_index=True)
-    phone = models.CharField(verbose_name='Телефон', max_length=20, null=True, blank=True)
+    phone = models.CharField(verbose_name='Телефон', max_length=20, unique=True)
     first_name = models.CharField(verbose_name='Имя', max_length=100)
     last_name = models.CharField(verbose_name='Фамилия', max_length=100)
     is_active = models.BooleanField(verbose_name='Активированный', default=False)
