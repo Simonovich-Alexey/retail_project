@@ -2,9 +2,9 @@ import re
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
+# from django.utils.translation import gettext_lazy as _
 
-from .models import CustomUser
+from .models import CustomUser, ContactsUser
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -86,9 +86,10 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         phone = attrs.get('phone')
-        pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
-        result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
-        attrs['phone'] = result_phone
+        if phone:
+            pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
+            result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
+            attrs['phone'] = result_phone
         return super().validate(attrs)
 
 
@@ -122,3 +123,38 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise ValidationError({'message': 'Пароли не совпадают'})
         attrs['user'] = user
         return attrs
+
+
+class ContactUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactsUser
+        fields = ['id', 'city', 'street', 'house', 'apartment', 'favorite', 'structure', 'building']
+        extra_kwargs = {
+            'structure': {'required': False},
+            'building': {'required': False},
+        }
+
+    def validate(self, attrs):
+        contacts = ContactsUser.objects.filter(user=self.context['request'].user)
+        attrs['user_id'] = self.context['request'].user.id
+        if len(contacts) > 10:
+            raise ValidationError({'message': 'Вы достигли максимального количества контактов (10)'})
+        return super().validate(attrs)
+
+    def create(self, validated_data):
+        if validated_data.get('favorite'):
+            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
+            if favorite:
+                favorite.favorite = False
+                favorite.save()
+
+        return ContactsUser.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        if validated_data.get('favorite'):
+            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
+            if favorite:
+                favorite.favorite = False
+                favorite.save()
+
+        return super().update(instance, validated_data)

@@ -9,10 +9,11 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 
 from retail_project import settings
-from .models import CustomUser
+from .models import CustomUser, ContactsUser
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
-    ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
+    ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
+    ContactUserSerializer
 from .email import email_activation, password_reset
 
 
@@ -98,6 +99,8 @@ class ProfileViewSet(viewsets.ModelViewSet):
             return PasswordResetSerializer
         elif self.action == 'password_reset_confirm':
             return PasswordResetConfirmSerializer
+        if self.action == 'contacts':
+            return ContactUserSerializer
 
         return self.serializer_class
 
@@ -158,3 +161,10 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 return Response({'message': 'Пароль успешно изменен'}, status=status.HTTP_200_OK)
 
         return Response({'message': 'Неверный ключ смены пароля'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ContactsUserViewSet(viewsets.ModelViewSet):
+    serializer_class = ContactUserSerializer
+    queryset = ContactsUser.objects.all()
+    permission_classes = [CurrentUser]
+    http_method_names = ['get', 'patch', 'delete', 'post']

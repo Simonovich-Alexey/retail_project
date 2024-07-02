@@ -32,10 +32,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     """
     Пользовательская модель пользователя
     """
+
     # Определение выбора типа пользователя
     class UserType(models.TextChoices):
         buyer = 'buyer', 'Покупатель'
         supplier = 'supplier', 'Поставщик'
+
     username_validator = UnicodeUsernameValidator()
     username = models.CharField(verbose_name='Имя пользователя', max_length=150, validators=[username_validator])
     email = models.EmailField(verbose_name='E-mail', unique=True, db_index=True)
@@ -45,7 +47,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(verbose_name='Активированный', default=False)
     is_staff = models.BooleanField(verbose_name='Сотрудник', default=False)
     type_user = models.CharField(verbose_name='Тип пользователя', choices=UserType.choices,
-                            max_length=10)
+                                 max_length=10)
     created_at = models.DateTimeField(verbose_name='Дата создания', auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name='Дата обновления', auto_now=True)
 
@@ -61,3 +63,21 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
         ordering = ('email',)
+
+
+class ContactsUser(models.Model):
+    user = models.ForeignKey(CustomUser, related_name='contacts', on_delete=models.CASCADE, verbose_name='Пользователь')
+    city = models.CharField(max_length=50, verbose_name='Город')
+    street = models.CharField(max_length=100, verbose_name='Улица')
+    house = models.IntegerField(verbose_name='Дом')
+    structure = models.IntegerField(verbose_name='Корпус', blank=True, null=True)
+    building = models.IntegerField(verbose_name='Строение', blank=True, null=True)
+    apartment = models.IntegerField(verbose_name='Квартира', blank=True, null=True)
+    favorite = models.BooleanField(default=False, verbose_name='Избранное')
+
+    class Meta:
+        verbose_name = 'Контакты пользователя'
+        verbose_name_plural = 'Список контактов пользователя'
+
+    def __str__(self):
+        return f'{self.city} {self.street} {self.house}'

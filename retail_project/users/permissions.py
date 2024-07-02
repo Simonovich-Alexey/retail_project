@@ -10,4 +10,4 @@ class CurrentUserOrAdmin(permissions.IsAuthenticated):
 class CurrentUser(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         user = request.user
-        return obj.pk == user.pk
+        return obj.user == user
