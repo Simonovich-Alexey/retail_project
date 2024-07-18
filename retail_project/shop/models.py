@@ -1,22 +1,5 @@
 from django.db import models
 
-"""
-1. Модель магазина
-   1.1. Название магазина
-   1.2. Пользователь (кто создал магазин)
-   1.3. Статус (активен или нет)
-   1.4. Ссылка на файл
-   
-2. Категории товара
-   2.1. Название категории
-
-3. Товар
-   3.1. Название
-   3.2. Категория
-
-4. 
-"""
-
 
 class Shop(models.Model):
     name_shop = models.CharField(max_length=100, verbose_name='Название магазина')
@@ -65,6 +48,8 @@ class ShopCategory(models.Model):
 class Product(models.Model):
     name_product = models.CharField(max_length=100, verbose_name='Название')
 
+    category_id = models.ForeignKey(Category, related_name='product', on_delete=models.CASCADE, verbose_name='Категория')
+
     class Meta:
         verbose_name = 'Товар'
         verbose_name_plural = 'Товары'
@@ -75,20 +60,21 @@ class Product(models.Model):
 
 
 class ProductInfo(models.Model):
-    name_model = models.CharField(max_length=100, verbose_name='Название')
-    product = models.ForeignKey(Product, related_name='product_info', on_delete=models.CASCADE, verbose_name='Товар')
-    shop = models.ForeignKey(ShopCategory, on_delete=models.CASCADE, verbose_name='Магазин')
+    name = models.CharField(max_length=100, verbose_name='Название')
     external_id = models.PositiveIntegerField(verbose_name='Внешний идентификатор')
     quantity = models.IntegerField(verbose_name='Количество')
     price = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Цена')
     price_rrc = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Розничная цена', default=0)
+
+    product = models.ForeignKey(Product, related_name='product_info', on_delete=models.CASCADE, verbose_name='Товар')
+    shop = models.ForeignKey(Shop, related_name='product_info', on_delete=models.CASCADE, verbose_name='Магазин')
 
     class Meta:
         verbose_name = 'Информация о продукте'
         verbose_name_plural = 'Информация о продуктах'
 
     def __str__(self):
-        return self.name_model
+        return self.name
 
 
 class Parameter(models.Model):

@@ -40,8 +40,8 @@ class ProductParameterInline(admin.TabularInline):
 class ProductInfoAdmin(admin.ModelAdmin):
     inlines = [ProductParameterInline]
     model = ProductInfo
-    list_display = ['name_model', 'product', 'shop', 'external_id', 'quantity', 'price', 'price_rrc']
-    list_display_links = ['name_model', 'product']
+    list_display = ['name', 'product', 'shop', 'external_id', 'quantity', 'price', 'price_rrc']
+    list_display_links = ['name', 'product']
     list_filter = ['shop']
     ordering = ['product']
 
