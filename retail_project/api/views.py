@@ -1,19 +1,21 @@
 from django.contrib.auth import login, logout
 from django.core.cache import cache
 from django.db import transaction
+from requests import get
 
-from rest_framework import viewsets, status, views
+from rest_framework import viewsets, generics, status, views
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from yaml import load, Loader
 
 from retail_project import settings
-from .models import CustomUser, ContactsUser
+from .models import CustomUser, ContactsUser, Shop, Category
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
-    ContactUserSerializer
+    ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer
 from .email import email_activation, password_reset
 
 
@@ -33,6 +35,9 @@ class RegisterUserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer, *args, **kwargs):
         user = serializer.save(*args, **kwargs)
+        if serializer.validated_data.get('type_user') == 'supplier':
+            Shop.objects.create(name_shop=serializer.validated_data.get('company'),
+                                user_id=user.id)
         email_activation(user.email, settings.EMAIL_HOST_USER)
 
     @action(methods=['post'], detail=False)
@@ -120,6 +125,9 @@ class ProfileViewSet(viewsets.ModelViewSet):
         user = self.queryset.get(id=request.user.id)
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get('company'):
+            Shop.objects.filter(user_id=user.id).update(name_shop=serializer.validated_data.get('company'))
+
         email = serializer.validated_data.get('email')
 
         if email and email != user.email:
@@ -168,3 +176,61 @@ class ContactsUserViewSet(viewsets.ModelViewSet):
     queryset = ContactsUser.objects.all()
     permission_classes = [CurrentUser]
     http_method_names = ['get', 'patch', 'delete', 'post']
+
+    def list(self, request, *args, **kwargs):
+        contacts = self.queryset.filter(user_id=request.user.id)
+        return Response(self.get_serializer(contacts, many=True).data)
+
+
+class ShopViewSet(viewsets.ModelViewSet):
+    queryset = Shop.objects.all()
+    serializer_class = ShopSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'patch']
+
+    def get_permissions(self):
+        if self.action == 'status_order':
+            return [CurrentUser()]
+        return super().get_permissions()
+
+    def update(self, request, *args, **kwargs):
+        return Response({'error': 'Изменение магазина запрещено'}, status=405)
+
+    @action(methods=['get', 'patch'], detail=False)
+    def status_order(self, request):
+        user = self.queryset.get(user_id=request.user.id)
+        serializer = self.get_serializer(user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    http_method_names = ['get']
+
+
+class LoadingGoods(generics.UpdateAPIView):
+    queryset = Shop.objects.all()
+    serializer_class = LoadingGoodsSerializer
+    permission_classes = [CurrentUser]
+
+    def update(self, request, *args, **kwargs):
+        user = self.queryset.get(user_id=request.user.id)
+        serializer = self.get_serializer(user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        url = serializer.validated_data.get('url_file')
+        print(url)
+        serializer.save()
+
+        stream = get(url).content
+        # print(stream)
+
+        data = load(stream, Loader=Loader)
+        print(data['categories'])
+        for categories in data['categories']:
+            categories_obj, _ = Category.objects.get_or_create(name_category=categories['name'])
+            categories_obj.shop.add(user)
+        return Response(data['categories'], status=status.HTTP_200_OK)

@@ -4,13 +4,13 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 # from django.utils.translation import gettext_lazy as _
 
-from .models import CustomUser, ContactsUser
+from .models import CustomUser, ContactsUser, Shop, Category
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'phone', 'first_name', 'last_name', 'password', 'type_user']
+        fields = ['id', 'email', 'phone', 'company', 'first_name', 'last_name', 'password', 'type_user']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
 
     def create(self, validated_data):
@@ -82,11 +82,13 @@ class LogoutSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['email', 'phone', 'first_name', 'last_name', 'type_user']
+        fields = ['email', 'phone', 'first_name', 'last_name', 'type_user', 'company']
 
     def validate(self, attrs):
+        if attrs.get('type_user'):
+            raise ValidationError({'message': 'Тип пользователя не может быть изменен'})
         phone = attrs.get('phone')
-        if phone:
+        if attrs.get('phone'):
             pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
             result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
             attrs['phone'] = result_phone
@@ -137,7 +139,7 @@ class ContactUserSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         contacts = ContactsUser.objects.filter(user=self.context['request'].user)
         attrs['user_id'] = self.context['request'].user.id
-        if len(contacts) > 10:
+        if len(contacts) > 5:
             raise ValidationError({'message': 'Вы достигли максимального количества контактов (10)'})
         return super().validate(attrs)
 
@@ -158,3 +160,25 @@ class ContactUserSerializer(serializers.ModelSerializer):
                 favorite.save()
 
         return super().update(instance, validated_data)
+
+
+class ShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ['id', 'name_shop', 'status_order']
+        extra_kwargs = {'name_shop': {'required': False}}
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name_category']
+
+
+class LoadingGoodsSerializer(serializers.Serializer):
+    url_file = serializers.URLField()
+
+    def update(self, instance, validated_data):
+        instance.url_file = validated_data.get('url_file')
+        instance.save()
+        return instance
