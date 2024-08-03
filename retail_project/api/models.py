@@ -169,7 +169,6 @@ class ProductInfo(models.Model):
 
 class Parameter(models.Model):
     name_parameter = models.CharField(max_length=100, verbose_name='Название')
-    unit = models.CharField(max_length=100, verbose_name='Единица измерения')
 
     product = models.ManyToManyField(ProductInfo, through='ProductParameter',
                                      related_name='parameter', verbose_name='Товар')

@@ -1,17 +1,20 @@
+from typing import Any, Dict, List
+
+import yaml
+import requests
 from django.contrib.auth import login, logout
 from django.core.cache import cache
 from django.db import transaction
-from requests import get
 
 from rest_framework import viewsets, generics, status, views
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from yaml import load, Loader
 
 from retail_project import settings
-from .models import CustomUser, ContactsUser, Shop, Category
+from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Parameter, ProductParameter
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
@@ -217,20 +220,70 @@ class LoadingGoods(generics.UpdateAPIView):
     serializer_class = LoadingGoodsSerializer
     permission_classes = [CurrentUser]
 
-    def update(self, request, *args, **kwargs):
-        user = self.queryset.get(user_id=request.user.id)
-        serializer = self.get_serializer(user, data=request.data)
+    @transaction.atomic
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
+        """
+        Обновление данных магазина пользователя.
+        """
+        # Получаем магазин пользователя
+        shop = get_object_or_404(self.queryset, user_id=request.user.id)
+        serializer = self.get_serializer(shop, data=request.data)
         serializer.is_valid(raise_exception=True)
         url = serializer.validated_data.get('url_file')
-        print(url)
+
         serializer.save()
 
-        stream = get(url).content
-        # print(stream)
+        # Получаем данные из файла по URL
+        url_response = requests.get(url)
 
-        data = load(stream, Loader=Loader)
-        print(data['categories'])
-        for categories in data['categories']:
+        if url_response.status_code != 200:
+            return Response({'message': 'Неверный URL'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Загружаем YAML данные
+        data = yaml.safe_load(url_response.content)
+
+        categories_data: List[Dict[str, Any]] = data.get('categories', [])
+        products_data: List[Dict[str, Any]] = data.get('goods', [])
+
+        if not categories_data or not products_data:
+            return Response({'message': 'Неверные данные'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Обработка категорий
+        category_objs = {}
+        for categories in categories_data:
             categories_obj, _ = Category.objects.get_or_create(name_category=categories['name'])
-            categories_obj.shop.add(user)
-        return Response(data['categories'], status=status.HTTP_200_OK)
+            category_objs[categories['id']] = categories_obj
+            categories_obj.shop.add(shop)
+
+        # Обработка продуктов
+        for item in products_data:
+            category = category_objs.get(item['category'])
+
+            product, _ = Product.objects.get_or_create(
+                name_product=item['name'],
+                category_id=category
+            )
+            product_info, _ = ProductInfo.objects.update_or_create(
+                product=product,
+                external_id=item['id'],
+                defaults={
+                    'name': item['name'],
+                    'price': item['price'],
+                    'price_rrc': item['price_rrc'],
+                    'quantity': item['quantity'],
+                }
+            )
+
+            # Обработка параметров продукта
+            for name, value in item['parameters'].items():
+                parameter_obj, _ = Parameter.objects.get_or_create(
+                    name_parameter=name
+                )
+
+                ProductParameter.objects.get_or_create(
+                    product_info=product_info,
+                    parameter=parameter_obj,
+                    value=value
+                )
+
+        return Response({'message': 'Товары загружены'}, status=status.HTTP_200_OK)

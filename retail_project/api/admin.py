@@ -74,7 +74,6 @@ class ProductInfoAdmin(admin.ModelAdmin):
 @admin.register(Parameter)
 class ParameterAdmin(admin.ModelAdmin):
     model = Parameter
-    list_display = ['name_parameter', 'unit']
+    list_display = ['name_parameter']
     list_display_links = ['name_parameter']
-    list_filter = ['unit']
     ordering = ['name_parameter']
