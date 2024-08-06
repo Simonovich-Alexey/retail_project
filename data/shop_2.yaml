@@ -1,0 +1,129 @@
+categories:
+  - id: 1
+    name: Смартфоны
+  - id: 2
+    name: Аксессуары
+  - id: 4
+    name: Телевизоры
+  - id: 5
+    name: Ноутбуки
+
+goods:
+  - id: 4216357
+    category: 1
+    model: apple/iphone/xs-max
+    name: Смартфон Apple iPhone XS Max 512GB (золотистый)
+    price: 109000
+    price_rrc: 116000
+    quantity: 5
+    parameters:
+      "Диагональ (дюйм)": 6.5
+      "Разрешение (пикс)": 2688x1242
+      "Встроенная память (Гб)": 512
+      "Цвет": золотистый
+  - id: 4216789
+    category: 1
+    model: apple/iphone/xr
+    name: Смартфон Apple iPhone XR 256GB (красный)
+    price: 65000
+    price_rrc: 70000
+    quantity: 4
+    parameters:
+      "Диагональ (дюйм)": 6.1
+      "Разрешение (пикс)": 1792x828
+      "Встроенная память (Гб)": 256
+      "Цвет": красный
+  - id: 1234555
+    category: 1
+    model: samsung/galaxy-s20
+    name: Smartphone Samsung Galaxy S20 128GB (black)
+    price: 80000
+    price_rrc: 85000
+    quantity: 12
+    parameters:
+      "Screen Size (inches)": 6.2
+      "Resolution (pixels)": 3200x1440
+      "Internal Memory (GB)": 128
+      "Color": black
+  - id: 1234556
+    category: 1
+    model: samsung/galaxy-s20
+    name: Smartphone Samsung Galaxy S20 128GB (golg)
+    price: 85000
+    price_rrc: 90000
+    quantity: 3
+    parameters:
+      "Screen Size (inches)": 6.2
+      "Resolution (pixels)": 3200x1440
+      "Internal Memory (GB)": 128
+      "Color": gold
+  - id: 12354
+    category: 2
+    model: sandisk/ultra-flair-64gb
+    name: USB Flash Drive SanDisk Ultra Flair 64GB (silver)
+    price: 1500
+    price_rrc: 2000
+    quantity: 4
+    parameters:
+      "Capacity (GB)": 64
+      "Color": silver
+  - id: 12345
+    category: 4
+    model: samsung/qled-q90r
+    name: Samsung QLED Q90R 65" 4K UHD Smart TV
+    price: 35000
+    price_rrc: 40000
+    quantity: 3
+    parameters:
+      "Screen Size (inches)": 65
+      "Resolution (pixels)": 3840x2160
+      "Smart TV": true
+  - id: 123476
+    category: 4
+    model: lg/oled-cx
+    name: LG OLED CX 55" 4K UHD Smart TV
+    price: 60000
+    price_rrc: 65000
+    quantity: 2
+    parameters:
+      "Screen Size (inches)": 55
+      "Resolution (pixels)": 3840x2160
+      "Smart TV": true
+  - id: 123445
+    category: 4
+    model: sony/bravia-x900h
+    name: Sony Bravia X900H 75" 4K UHD Smart TV
+    price: 45000
+    price_rrc: 50000
+    quantity: 2
+    parameters:
+      "Screen Size (inches)": 75
+      "Resolution (pixels)": 3840x2160
+      "Smart TV": true
+
+  - id: 7539518
+    category: 5
+    model: Apple MacBook/Air
+    name: Apple MacBook Air 13 M1/8/256 Space Gray
+    price: 700
+    price_rrc: 799
+    quantity: 4
+    parameters:
+      "Диагональ": 13.3"
+      "Разрешение": 2560x1600 пикс
+      "Цвет": Space Gray
+      "Объем SSD": 256 ГБ
+      "Работа от аккумулятора": до 18 часов
+  - id: 7531592
+    category: 5
+    model: HONOR/MagicBook
+    name: Ноутбук HONOR MagicBook 14/14"/AMD Ryzen 5 5500U/16/512/noOS/Space Gray (5301AFWF)
+    price: 40000
+    price_rrc: 47000
+    quantity: 10
+    parameters:
+      "Диагональ": 14"
+      "Разрешение": 1920x1080 пикс
+      "Цвет": Space Gray
+      "Объем SSD": 512 ГБ
+      "Процессор": AMD Ryzen 5 5500U 2.1 ГГц
