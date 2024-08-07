@@ -49,8 +49,6 @@ class CustomUser(AbstractUser, PermissionsMixin):
     email = models.EmailField(verbose_name='E-mail', unique=True, db_index=True)
     phone = models.CharField(verbose_name='Телефон', max_length=20, unique=True)
     company = models.CharField(verbose_name='Компания', max_length=100, blank=True)
-    # first_name = models.CharField(verbose_name='Имя', max_length=100)
-    # last_name = models.CharField(verbose_name='Фамилия', max_length=100)
     is_active = models.BooleanField(verbose_name='Активированный', default=False)
 
     type_user = models.CharField(verbose_name='Тип пользователя', choices=UserType.choices,
@@ -193,3 +191,44 @@ class ProductParameter(models.Model):
         verbose_name = 'Параметр'
         verbose_name_plural = 'Параметры'
         ordering = ('product_info',)
+
+
+class Order(models.Model):
+    class StateChoices(models.TextChoices):
+        created = 'created', 'Создан'
+        confirmed = 'confirmed', 'Подтвержден'
+        assembled = 'assembled', 'Собран'
+        sent = 'sent', 'Отправлен'
+        delivered = 'delivered', 'Доставлен'
+        canceled = 'canceled', 'Отменен'
+
+    user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
+    status = models.CharField(max_length=15, verbose_name='Статус', choices=StateChoices.choices,
+                              default=StateChoices.created)
+    contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
+                                 verbose_name='Контакты', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.user} - {self.status}'
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ')
+    product_info = models.ForeignKey(ProductInfo, related_name='order_items', on_delete=models.CASCADE,
+                                     verbose_name='Информация о продукте')
+    quantity = models.PositiveIntegerField(verbose_name='Количество')
+
+    class Meta:
+        verbose_name = 'Элемент заказа'
+        verbose_name_plural = 'Элементы заказа'
+        ordering = ('-order',)
+
+    def __str__(self):
+        return f'{self.order} - {self.product_info}'

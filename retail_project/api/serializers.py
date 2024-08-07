@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 # from django.utils.translation import gettext_lazy as _
 
-from .models import CustomUser, ContactsUser, Shop, Category
+from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -79,10 +79,48 @@ class LogoutSerializer(serializers.ModelSerializer):
         fields = ['email']
 
 
+class ContactUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactsUser
+        fields = ['id', 'city', 'street', 'house', 'apartment', 'favorite', 'structure', 'building']
+        extra_kwargs = {
+            'structure': {'required': False},
+            'building': {'required': False},
+        }
+        ordering = ['favorite']
+
+    def validate(self, attrs):
+        contacts = ContactsUser.objects.filter(user=self.context['request'].user)
+        attrs['user_id'] = self.context['request'].user.id
+        if len(contacts) > 5:
+            raise ValidationError({'message': 'Вы достигли максимального количества контактов (10)'})
+        return super().validate(attrs)
+
+    def create(self, validated_data):
+        if validated_data.get('favorite'):
+            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
+            if favorite:
+                favorite.favorite = False
+                favorite.save()
+
+        return ContactsUser.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        if validated_data.get('favorite'):
+            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
+            if favorite:
+                favorite.favorite = False
+                favorite.save()
+
+        return super().update(instance, validated_data)
+
+
 class ProfileSerializer(serializers.ModelSerializer):
+    contacts = ContactUserSerializer(many=True, read_only=True)
+
     class Meta:
         model = CustomUser
-        fields = ['email', 'phone', 'first_name', 'last_name', 'type_user', 'company']
+        fields = ['email', 'phone', 'first_name', 'last_name', 'type_user', 'company', 'contacts']
 
     def validate(self, attrs):
         if attrs.get('type_user'):
@@ -127,41 +165,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         return attrs
 
 
-class ContactUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ContactsUser
-        fields = ['id', 'city', 'street', 'house', 'apartment', 'favorite', 'structure', 'building']
-        extra_kwargs = {
-            'structure': {'required': False},
-            'building': {'required': False},
-        }
-
-    def validate(self, attrs):
-        contacts = ContactsUser.objects.filter(user=self.context['request'].user)
-        attrs['user_id'] = self.context['request'].user.id
-        if len(contacts) > 5:
-            raise ValidationError({'message': 'Вы достигли максимального количества контактов (10)'})
-        return super().validate(attrs)
-
-    def create(self, validated_data):
-        if validated_data.get('favorite'):
-            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
-            if favorite:
-                favorite.favorite = False
-                favorite.save()
-
-        return ContactsUser.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-        if validated_data.get('favorite'):
-            favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
-            if favorite:
-                favorite.favorite = False
-                favorite.save()
-
-        return super().update(instance, validated_data)
-
-
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
@@ -182,3 +185,37 @@ class LoadingGoodsSerializer(serializers.Serializer):
         instance.url_file = validated_data.get('url_file')
         instance.save()
         return instance
+
+
+# class ProductInfoSerializer(serializers.ModelSerializer):
+#     name_shop = serializers.CharField(source='shop.name_shop')
+#
+#     class Meta:
+#         model = ProductInfo
+#         fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc']
+#
+#
+# class ProductSerializer(serializers.ModelSerializer):
+#     product_info = ProductInfoSerializer(many=True, read_only=True)
+#     name_category = serializers.CharField(source='category_id.name_category')
+#
+#     class Meta:
+#         model = Product
+#         fields = ['id', 'name_product', 'name_category', 'product_info']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    name_category = serializers.CharField(source='category_id.name_category')
+
+    class Meta:
+        model = Product
+        fields = ['name_product', 'name_category', 'category_id']
+
+
+class ProductInfoSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True, many=False)
+    name_shop = serializers.CharField(source='shop.name_shop')
+
+    class Meta:
+        model = ProductInfo
+        fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc', 'product']

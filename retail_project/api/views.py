@@ -5,9 +5,11 @@ import requests
 from django.contrib.auth import login, logout
 from django.core.cache import cache
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import viewsets, generics, status, views
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -18,7 +20,7 @@ from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductIn
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
-    ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer
+    ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer
 from .email import email_activation, password_reset
 
 
@@ -230,7 +232,6 @@ class LoadingGoods(generics.UpdateAPIView):
         serializer = self.get_serializer(shop, data=request.data)
         serializer.is_valid(raise_exception=True)
         url = serializer.validated_data.get('url_file')
-
         serializer.save()
 
         # Получаем данные из файла по URL
@@ -265,6 +266,7 @@ class LoadingGoods(generics.UpdateAPIView):
             )
             product_info, _ = ProductInfo.objects.update_or_create(
                 product=product,
+                shop=shop,
                 external_id=item['id'],
                 defaults={
                     'name': item['name'],
@@ -287,3 +289,14 @@ class LoadingGoods(generics.UpdateAPIView):
                 )
 
         return Response({'message': 'Товары загружены'}, status=status.HTTP_200_OK)
+
+
+class ProductInfoViewSet(viewsets.ModelViewSet):
+    queryset = ProductInfo.objects.all()
+    serializer_class = ProductInfoSerializer
+    permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['shop']
+    search_fields = ['name', 'shop__name_shop', 'product__name_product', 'product__category_id__name_category']
+    ordering_fields = ['shop', 'product', 'price', 'quantity']
+    http_method_names = ['get']
