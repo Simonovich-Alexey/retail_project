@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 # from django.utils.translation import gettext_lazy as _
 
-from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo
+from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Order, OrderItem
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -219,3 +219,26 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductInfo
         fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc', 'product']
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OrderItem
+        fields = ['product_info', 'quantity']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    # contacts = ContactUserSerializer(many=False, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['user', 'created_at', 'status', 'contacts', 'items']
+        extra_kwargs = {'user': {'read_only': True}}
+
+    # def create(self, validated_data):
+    #     user = self.context.get('request').user
+    #     # print(self.context.get('request').data.get('items'))
+    #     validated_data['user'] = user
+    #     return super().create(validated_data)

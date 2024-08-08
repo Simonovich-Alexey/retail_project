@@ -16,11 +16,13 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 
 from retail_project import settings
-from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Parameter, ProductParameter
+from .models import (CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Parameter, ProductParameter,
+                     Order, OrderItem)
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
-    ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer
+    ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer, \
+    OrderSerializer, OrderItemSerializer
 from .email import email_activation, password_reset
 
 
@@ -203,7 +205,7 @@ class ShopViewSet(viewsets.ModelViewSet):
 
     @action(methods=['get', 'patch'], detail=False)
     def status_order(self, request):
-        user = self.queryset.get(user_id=request.user.id)
+        user = get_object_or_404(self.queryset, user_id=request.user.id)
         serializer = self.get_serializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -300,3 +302,35 @@ class ProductInfoViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'shop__name_shop', 'product__name_product', 'product__category_id__name_category']
     ordering_fields = ['shop', 'product', 'price', 'quantity']
     http_method_names = ['get']
+
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    queryset = OrderItem.objects.all()
+    serializer_class = OrderItemSerializer
+    permission_classes = [CurrentUser]
+
+    def create(self, request, *args, **kwargs):
+        user = get_object_or_404(CustomUser, id=request.user.id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order, _ = Order.objects.get_or_create(user=user)
+        quantity = serializer.validated_data['quantity']
+        product_info = serializer.validated_data['product_info']
+
+        order_item, _ = OrderItem.objects.update_or_create(product_info=product_info,
+                                                           order=order,
+                                                           defaults={
+                                                               'quantity': quantity
+                                                           })
+        serializer = OrderSerializer(order)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+# class OrderViewSet(viewsets.ModelViewSet):
+#     queryset = Order.objects.all()
+#     serializer_class = OrderSerializer
+#     permission_classes = [CurrentUser]
+#
+#     def perform_create(self, serializer):
+#         serializer.save(user=self.request.user)

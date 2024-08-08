@@ -195,6 +195,7 @@ class ProductParameter(models.Model):
 
 class Order(models.Model):
     class StateChoices(models.TextChoices):
+        basket = 'basket', 'Статус корзина'
         created = 'created', 'Создан'
         confirmed = 'confirmed', 'Подтвержден'
         assembled = 'assembled', 'Собран'
@@ -206,7 +207,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
     status = models.CharField(max_length=15, verbose_name='Статус', choices=StateChoices.choices,
-                              default=StateChoices.created)
+                              default=StateChoices.basket)
     contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
                                  verbose_name='Контакты', null=True, blank=True)
 
@@ -220,7 +221,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ')
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ', blank=True)
     product_info = models.ForeignKey(ProductInfo, related_name='order_items', on_delete=models.CASCADE,
                                      verbose_name='Информация о продукте')
     quantity = models.PositiveIntegerField(verbose_name='Количество')

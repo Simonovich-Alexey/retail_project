@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (CustomUser, ContactsUser, Shop, Category, Product,
-                     ShopCategory, ProductInfo, Parameter, ProductParameter)
+                     ShopCategory, ProductInfo, Parameter, ProductParameter, Order, OrderItem)
 
 
 @admin.register(CustomUser)
@@ -77,3 +77,17 @@ class ParameterAdmin(admin.ModelAdmin):
     list_display = ['name_parameter']
     list_display_links = ['name_parameter']
     ordering = ['name_parameter']
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    inlines = [OrderItemInline]
+    model = Order
+    list_display = ['id', 'user', 'created_at', 'status', 'contacts']
+    list_display_links = ['user']
+    list_filter = ['status']
+    ordering = ['created_at']
