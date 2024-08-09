@@ -21,7 +21,7 @@ class CustomUserAdmin(UserAdmin):
 @admin.register(ContactsUser)
 class ContactsUserAdmin(admin.ModelAdmin):
     model = ContactsUser
-    list_display = ['user', 'city', 'street', 'house', 'structure', 'building', 'apartment', 'favorite']
+    list_display = ['id', 'user', 'city', 'street', 'house', 'structure', 'building', 'apartment', 'favorite']
     list_display_links = ['user']
     list_filter = ['user']
     ordering = ['user']
@@ -30,7 +30,7 @@ class ContactsUserAdmin(admin.ModelAdmin):
 @admin.register(Shop)
 class ShopAdmin(admin.ModelAdmin):
     model = Shop
-    list_display = ['name_shop', 'url_file', 'status_order', 'user']
+    list_display = ['id', 'name_shop', 'url_file', 'status_order', 'user']
     list_display_links = ['name_shop']
     list_filter = ['status_order']
     ordering = ['name_shop']
@@ -44,17 +44,22 @@ class ShopCategoryInline(admin.TabularInline):
 class CategoryAdmin(admin.ModelAdmin):
     inlines = [ShopCategoryInline]
     model = Category
-    list_display = ['name_category']
+    list_display = ['id', 'name_category']
     list_display_links = ['name_category']
     ordering = ['name_category']
 
 
+class ProductInfoInline(admin.TabularInline):
+    model = ProductInfo
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    inlines = [ProductInfoInline]
     model = Product
-    list_display = ['name_product']
+    list_display = ['id', 'name_product', 'category_id']
     list_display_links = ['name_product']
-    ordering = ['name_product']
+    ordering = ['id']
 
 
 class ProductParameterInline(admin.TabularInline):
@@ -65,7 +70,7 @@ class ProductParameterInline(admin.TabularInline):
 class ProductInfoAdmin(admin.ModelAdmin):
     inlines = [ProductParameterInline]
     model = ProductInfo
-    list_display = ['name', 'product', 'shop', 'external_id', 'quantity', 'price', 'price_rrc']
+    list_display = ['id', 'name', 'product', 'shop', 'external_id', 'quantity', 'price', 'price_rrc']
     list_display_links = ['name', 'product']
     list_filter = ['shop']
     ordering = ['product']
@@ -87,7 +92,12 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     inlines = [OrderItemInline]
     model = Order
-    list_display = ['id', 'user', 'created_at', 'status', 'contacts']
+    list_display = ['id', 'user', 'created_at', 'status', 'contacts', 'total_cost']
     list_display_links = ['user']
     list_filter = ['status']
     ordering = ['created_at']
+
+    def total_cost(self, obj):
+        return obj.get_total_cost()
+
+    total_cost.short_description = 'Сумма заказа'

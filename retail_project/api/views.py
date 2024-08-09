@@ -22,7 +22,7 @@ from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
     ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer, \
-    OrderSerializer, OrderItemSerializer
+    OrderSerializer, OrderItemSerializer, OrderItemDestroySerializer
 from .email import email_activation, password_reset
 
 
@@ -305,32 +305,53 @@ class ProductInfoViewSet(viewsets.ModelViewSet):
 
 
 class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.all()
+    queryset = OrderItem.objects.all().prefetch_related('product_info', 'order')
     serializer_class = OrderItemSerializer
     permission_classes = [CurrentUser]
 
+    def get_queryset(self):
+        if self.action == 'list':
+            return Order.objects.all().prefetch_related('user')
+
+        return super().get_queryset()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return OrderSerializer
+        if self.action == 'destroy':
+            return OrderItemDestroySerializer
+
+        return super().get_serializer_class()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset().filter(user=request.user.id)
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def create(self, request, *args, **kwargs):
-        user = get_object_or_404(CustomUser, id=request.user.id)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        order, _ = Order.objects.get_or_create(user=user)
+        order, _ = Order.objects.get_or_create(user=request.user.id)
+
         quantity = serializer.validated_data['quantity']
         product_info = serializer.validated_data['product_info']
 
-        order_item, _ = OrderItem.objects.update_or_create(product_info=product_info,
-                                                           order=order,
-                                                           defaults={
-                                                               'quantity': quantity
-                                                           })
+        order_item, _ = self.queryset.update_or_create(product_info=product_info,
+                                                       order=order,
+                                                       defaults={
+                                                           'quantity': quantity
+                                                       })
         serializer = OrderSerializer(order)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-# class OrderViewSet(viewsets.ModelViewSet):
-#     queryset = Order.objects.all()
-#     serializer_class = OrderSerializer
-#     permission_classes = [CurrentUser]
-#
-#     def perform_create(self, serializer):
-#         serializer.save(user=self.request.user)
+    def destroy(self, request: requests, pk: str = 'delete', *args, **kwargs) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        get_object_or_404(self.queryset, product_info=serializer.validated_data['product_info']).delete()
+        if not OrderItem.objects.filter(order__user=request.user.id).exists():
+            Order.objects.filter(user=request.user.id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

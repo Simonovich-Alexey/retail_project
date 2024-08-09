@@ -225,20 +225,29 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['product_info', 'quantity']
+        fields = ['id', 'product_info', 'quantity']
+
+    def validate(self, attrs):
+        quantity_product = attrs.get('product_info').quantity
+        if attrs.get('quantity') > quantity_product:
+            raise ValidationError({'message': 'Количество больше остатка'})
+        if attrs.get('quantity') <= 0:
+            raise ValidationError({'message': 'Количество должно быть больше нуля'})
+        return super().validate(attrs)
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
-    # contacts = ContactUserSerializer(many=False, read_only=True)
+    total_cost = serializers.IntegerField(source='get_total_cost')
 
     class Meta:
         model = Order
-        fields = ['user', 'created_at', 'status', 'contacts', 'items']
+        fields = ['user', 'created_at', 'status', 'contacts', 'total_cost', 'items']
         extra_kwargs = {'user': {'read_only': True}}
 
-    # def create(self, validated_data):
-    #     user = self.context.get('request').user
-    #     # print(self.context.get('request').data.get('items'))
-    #     validated_data['user'] = user
-    #     return super().create(validated_data)
+
+class OrderItemDestroySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OrderItem
+        fields = ['product_info']

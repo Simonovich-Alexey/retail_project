@@ -71,6 +71,8 @@ class CustomUser(AbstractUser, PermissionsMixin):
 
 
 class ContactsUser(models.Model):
+    objects = models.Manager()
+
     user = models.ForeignKey(CustomUser, related_name='contacts', on_delete=models.CASCADE, verbose_name='Пользователь')
     city = models.CharField(max_length=50, verbose_name='Город')
     street = models.CharField(max_length=100, verbose_name='Улица')
@@ -89,6 +91,8 @@ class ContactsUser(models.Model):
 
 
 class Shop(models.Model):
+    objects = models.Manager()
+
     name_shop = models.CharField(max_length=100, verbose_name='Название магазина')
     url_file = models.URLField(max_length=255, verbose_name='Ссылка на файл', blank=True, null=True)
     status_order = models.BooleanField(default=False, verbose_name='Статус приема заказов')
@@ -106,6 +110,8 @@ class Shop(models.Model):
 
 
 class Category(models.Model):
+    objects = models.Manager()
+
     name_category = models.CharField(max_length=100, verbose_name='Название категории')
 
     shop = models.ManyToManyField(Shop, related_name='category', verbose_name='Магазин', through='ShopCategory')
@@ -120,6 +126,8 @@ class Category(models.Model):
 
 
 class ShopCategory(models.Model):
+    objects = models.Manager()
+
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, verbose_name='Магазин')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория')
 
@@ -133,6 +141,8 @@ class ShopCategory(models.Model):
 
 
 class Product(models.Model):
+    objects = models.Manager()
+
     name_product = models.CharField(max_length=100, verbose_name='Название')
 
     category_id = models.ForeignKey(Category, related_name='product',
@@ -148,6 +158,8 @@ class Product(models.Model):
 
 
 class ProductInfo(models.Model):
+    objects = models.Manager()
+
     name = models.CharField(max_length=100, verbose_name='Название')
     external_id = models.PositiveIntegerField(verbose_name='Внешний идентификатор')
     quantity = models.IntegerField(verbose_name='Количество')
@@ -166,6 +178,8 @@ class ProductInfo(models.Model):
 
 
 class Parameter(models.Model):
+    objects = models.Manager()
+
     name_parameter = models.CharField(max_length=100, verbose_name='Название')
 
     product = models.ManyToManyField(ProductInfo, through='ProductParameter',
@@ -181,6 +195,8 @@ class Parameter(models.Model):
 
 
 class ProductParameter(models.Model):
+    objects = models.Manager()
+
     product_info = models.ForeignKey(ProductInfo, related_name='product_parameter',
                                      on_delete=models.CASCADE, verbose_name='Информация о продукте')
     parameter = models.ForeignKey(Parameter, related_name='parameter',
@@ -203,6 +219,8 @@ class Order(models.Model):
         delivered = 'delivered', 'Доставлен'
         canceled = 'canceled', 'Отменен'
 
+    objects = models.Manager()
+
     user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
@@ -219,8 +237,16 @@ class Order(models.Model):
     def __str__(self):
         return f'{self.user} - {self.status}'
 
+    def get_total_quantity(self):
+        return sum(list(map(lambda x: x.quantity, self.items.all())))
+
+    def get_total_cost(self):
+        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
+
 
 class OrderItem(models.Model):
+    objects = models.Manager()
+
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ', blank=True)
     product_info = models.ForeignKey(ProductInfo, related_name='order_items', on_delete=models.CASCADE,
                                      verbose_name='Информация о продукте')
