@@ -233,6 +233,9 @@ class Order(models.Model):
         verbose_name = 'Заказ'
         verbose_name_plural = 'Заказы'
         ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(fields=['id', 'status'], name='unique_order')
+        ]
 
     def __str__(self):
         return f'{self.user} - {self.status}'

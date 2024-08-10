@@ -251,3 +251,20 @@ class OrderItemDestroySerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['product_info']
+
+
+class OrderRegisterSerializer(serializers.ModelSerializer):
+    # id = serializers.IntegerField()
+    # status = serializers.CharField()
+
+    class Meta:
+        model = Order
+        fields = ['id', 'contacts']
+
+
+class OrderConfirmSerializer(serializers.ModelSerializer):
+    key = serializers.CharField(min_length=8, max_length=64)
+
+    class Meta:
+        model = Order
+        fields = ['key']

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (RegisterUserViewSet, LoginViewSet, LogoutView,
                     ProfileViewSet, ContactsUserViewSet, ShopViewSet,
-                    CategoryViewSet, LoadingGoods, ProductInfoViewSet, OrderItemViewSet)
+                    CategoryViewSet, LoadingGoods, ProductInfoViewSet, OrderItemViewSet, OrdersViewSet)
 
 router = DefaultRouter()
 
@@ -15,6 +15,7 @@ router.register('shop', ShopViewSet)
 router.register('categories', CategoryViewSet)
 router.register('products', ProductInfoViewSet)
 router.register('basket', OrderItemViewSet)
+router.register('orders', OrdersViewSet)
 
 urlpatterns = [
     path('user/logout/', LogoutView.as_view()),

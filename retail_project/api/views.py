@@ -22,8 +22,8 @@ from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
     ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer, \
-    OrderSerializer, OrderItemSerializer, OrderItemDestroySerializer
-from .email import email_activation, password_reset
+    OrderSerializer, OrderItemSerializer, OrderItemDestroySerializer, OrderRegisterSerializer, OrderConfirmSerializer
+from .email import email_activation, password_reset, order_confirm
 
 
 class RegisterUserViewSet(viewsets.ModelViewSet):
@@ -312,6 +312,8 @@ class OrderItemViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.action == 'list':
             return Order.objects.all().prefetch_related('user')
+        if self.action in ['order', 'confirm_order']:
+            return Order.objects.all().prefetch_related('user')
 
         return super().get_queryset()
 
@@ -320,20 +322,25 @@ class OrderItemViewSet(viewsets.ModelViewSet):
             return OrderSerializer
         if self.action == 'destroy':
             return OrderItemDestroySerializer
+        if self.action == 'order':
+            return OrderRegisterSerializer
+        if self.action == 'confirm_order':
+            return OrderConfirmSerializer
 
         return super().get_serializer_class()
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset().filter(user=request.user.id)
+        queryset = self.get_queryset().filter(user=request.user.id, status=Order.StateChoices.basket)
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
+        user = get_object_or_404(CustomUser, id=request.user.id)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        order, _ = Order.objects.get_or_create(user=request.user.id)
+        order, _ = Order.objects.get_or_create(user=user, status=Order.StateChoices.basket)
 
         quantity = serializer.validated_data['quantity']
         product_info = serializer.validated_data['product_info']
@@ -351,7 +358,50 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        get_object_or_404(self.queryset, product_info=serializer.validated_data['product_info']).delete()
-        if not OrderItem.objects.filter(order__user=request.user.id).exists():
-            Order.objects.filter(user=request.user.id).delete()
+        get_object_or_404(self.queryset, product_info=serializer.validated_data['product_info'],
+                          order__status=Order.StateChoices.basket).delete()
+        if not OrderItem.objects.filter(order__user=request.user.id, order__status=Order.StateChoices.basket).exists():
+            Order.objects.filter(user=request.user.id, status=Order.StateChoices.basket).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['post'], detail=False)
+    def order(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_email = request.user.email
+        basket = self.get_queryset().filter(user=request.user.id, status=Order.StateChoices.basket)
+        if not basket.exists():
+            return Response({'message': 'Корзина пуста'}, status=status.HTTP_400_BAD_REQUEST)
+        basket.update(contacts=serializer.validated_data['contacts'])
+        order_confirm(user_email, settings.EMAIL_HOST_USER)
+        return Response({'message': 'Заказ оформлен, на вашу почту отправлено письмо'},
+                        status=status.HTTP_200_OK)
+
+    @action(methods=["post"], detail=False)
+    def confirm_order(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        key = serializer.validated_data["key"]
+
+        redis_key = cache.get(key)
+        if redis_key and redis_key.get('user_email') == request.user.email:
+            with transaction.atomic():
+                self.get_queryset().filter(user=request.user.id, status=Order.StateChoices.basket).update(
+                    status=Order.StateChoices.created)
+                cache.delete(key)
+                return Response({'message': 'Заказ успешно оформлен'}, status=status.HTTP_200_OK)
+
+        return Response({'message': 'Неверный ключ активации'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OrdersViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().prefetch_related('user')
+    serializer_class = OrderSerializer
+    permission_classes = [CurrentUser]
+    http_method_names = ['get']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.queryset.filter(user=request.user.id)
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
