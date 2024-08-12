@@ -212,7 +212,7 @@ class ProductParameter(models.Model):
 class Order(models.Model):
     class StateChoices(models.TextChoices):
         basket = 'basket', 'Статус корзина'
-        created = 'created', 'Создан'
+        new = 'new', 'Новый'
         confirmed = 'confirmed', 'Подтвержден'
         assembled = 'assembled', 'Собран'
         sent = 'sent', 'Отправлен'

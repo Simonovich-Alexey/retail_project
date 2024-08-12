@@ -2,7 +2,6 @@ import re
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-# from django.utils.translation import gettext_lazy as _
 
 from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Order, OrderItem
 
@@ -13,10 +12,10 @@ class RegisterUserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'phone', 'company', 'first_name', 'last_name', 'password', 'type_user']
         extra_kwargs = {'password': {'write_only': True, 'min_length': 8, 'max_length': 64}}
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict) -> CustomUser:
         return CustomUser.objects.create_user(**validated_data)
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         phone = attrs.get('phone')
         pattern_phone = r'[+]?[8,7]?[\s -]?(\d{3})[\s -]?(\d{3})[\s -]?(\d{2})[\s -]?(\d{2})'
         result_phone = re.sub(pattern_phone, r'+7 \1 \2-\3-\4', phone)
@@ -29,7 +28,7 @@ class RegisterUserSerializer(serializers.ModelSerializer):
 class ResendActivationSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         user = CustomUser.objects.filter(email=attrs.get('email')).first()
         if user:
             if not user.is_active:
@@ -44,7 +43,7 @@ class ActivationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     key = serializers.CharField()
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         user = CustomUser.objects.filter(email=attrs.get('email')).first()
         if user:
             if not user.is_active:
@@ -58,7 +57,7 @@ class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         email = attrs.get('email')
         password = attrs.get('password')
 
@@ -89,14 +88,14 @@ class ContactUserSerializer(serializers.ModelSerializer):
         }
         ordering = ['favorite']
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         contacts = ContactsUser.objects.filter(user=self.context['request'].user)
         attrs['user_id'] = self.context['request'].user.id
         if len(contacts) > 5:
             raise ValidationError({'message': 'Вы достигли максимального количества контактов (10)'})
         return super().validate(attrs)
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict) -> ContactsUser:
         if validated_data.get('favorite'):
             favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
             if favorite:
@@ -105,7 +104,7 @@ class ContactUserSerializer(serializers.ModelSerializer):
 
         return ContactsUser.objects.create(**validated_data)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: ContactsUser, validated_data: dict) -> ContactsUser:
         if validated_data.get('favorite'):
             favorite = ContactsUser.objects.filter(user=self.context['request'].user, favorite=True).first()
             if favorite:
@@ -122,7 +121,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ['email', 'phone', 'first_name', 'last_name', 'type_user', 'company', 'contacts']
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         if attrs.get('type_user'):
             raise ValidationError({'message': 'Тип пользователя не может быть изменен'})
         phone = attrs.get('phone')
@@ -136,7 +135,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         email = attrs.get('email')
         user = CustomUser.objects.filter(email=email).first()
         if user and user.email == email:
@@ -151,7 +150,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     new_password = serializers.CharField(min_length=8, max_length=64)
     confirm_password = serializers.CharField(min_length=8, max_length=64)
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         new_password = attrs.get('new_password')
         confirm_password = attrs.get('confirm_password')
         user = CustomUser.objects.filter(email=attrs.get('email')).first()
@@ -181,27 +180,10 @@ class CategorySerializer(serializers.ModelSerializer):
 class LoadingGoodsSerializer(serializers.Serializer):
     url_file = serializers.URLField()
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Shop, validated_data: dict) -> Shop:
         instance.url_file = validated_data.get('url_file')
         instance.save()
         return instance
-
-
-# class ProductInfoSerializer(serializers.ModelSerializer):
-#     name_shop = serializers.CharField(source='shop.name_shop')
-#
-#     class Meta:
-#         model = ProductInfo
-#         fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc']
-#
-#
-# class ProductSerializer(serializers.ModelSerializer):
-#     product_info = ProductInfoSerializer(many=True, read_only=True)
-#     name_category = serializers.CharField(source='category_id.name_category')
-#
-#     class Meta:
-#         model = Product
-#         fields = ['id', 'name_product', 'name_category', 'product_info']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -225,20 +207,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product_info', 'quantity']
+        fields = ['id', 'quantity', 'product_info']
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         quantity_product = attrs.get('product_info').quantity
         if attrs.get('quantity') > quantity_product:
             raise ValidationError({'message': 'Количество больше остатка'})
         if attrs.get('quantity') <= 0:
             raise ValidationError({'message': 'Количество должно быть больше нуля'})
+        if not attrs.get('product_info').shop.status_order:
+            raise ValidationError({'message': 'Магазин неактивен'})
         return super().validate(attrs)
 
 
+class OrderItemListSerializer(OrderItemSerializer):
+    product_info = ProductInfoSerializer(many=False, read_only=True)
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+    items = OrderItemListSerializer(many=True, read_only=True)
     total_cost = serializers.IntegerField(source='get_total_cost')
+    contacts = ContactUserSerializer(many=False, read_only=True)
 
     class Meta:
         model = Order
@@ -254,8 +243,6 @@ class OrderItemDestroySerializer(serializers.ModelSerializer):
 
 
 class OrderRegisterSerializer(serializers.ModelSerializer):
-    # id = serializers.IntegerField()
-    # status = serializers.CharField()
 
     class Meta:
         model = Order
@@ -268,3 +255,19 @@ class OrderConfirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['key']
+
+
+class SupplierOrdersSerializer(serializers.ModelSerializer):
+    contacts = ContactUserSerializer(many=False, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'created_at', 'status', 'contacts']
+
+
+class SupplierOrdersItemsSerializer(serializers.ModelSerializer):
+    order = SupplierOrdersSerializer(many=False, read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['product_info', 'quantity', 'order']
