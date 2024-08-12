@@ -20,5 +20,11 @@ docker-compose --env-file .env_example up redis -d
 
 ### Запуск приложения:
 ```bash
-docker-compose --env-file .env_example up app -d
+docker-compose --env-file .env_example up retail_project nginx -d
 ```
+
+### Суперпользователь
+
+email - *root@example.com*
+
+password - *root*

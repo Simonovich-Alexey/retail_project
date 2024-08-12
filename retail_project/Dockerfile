@@ -8,3 +8,8 @@ COPY ./requirements.txt .
 RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
 
 COPY . .
+
+CMD python manage.py migrate \
+    && python manage.py collectstatic --no-input \
+    && python manage.py shell -c "from api.models import CustomUser; CustomUser.objects.create_superuser(email='root@example.com', password='root')" \
+    && gunicorn retail_project.wsgi:application --bind 0.0.0.0:8000

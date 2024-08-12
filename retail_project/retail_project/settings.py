@@ -149,7 +149,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://localhost:6379/1',
+        'LOCATION': 'redis://redis:6379/1',
     }
 }
 
@@ -164,3 +164,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+]

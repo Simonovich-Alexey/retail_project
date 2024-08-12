@@ -12,8 +12,8 @@ services:
       - pgdata:/var/lib/postgres/data
 
   retail_project:
-    build: ./retail_project/
-    command: gunicorn retail_project.wsgi:application --bind 0.0.0.0:8000
+    build:
+      context: ./retail_project/
     env_file:
       - .env
     volumes:
@@ -28,7 +28,7 @@ services:
     volumes:
       - ./retail_project/static/:/app/static/
     ports:
-      - "8080:80"
+      - "8000:80"
     depends_on:
       - retail_project
 
