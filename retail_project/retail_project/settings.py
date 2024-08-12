@@ -149,7 +149,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://localhost:16379/1',
+        'LOCATION': 'redis://localhost:6379/1',
     }
 }
 
