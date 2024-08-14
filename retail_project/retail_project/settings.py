@@ -149,7 +149,7 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://redis:6379/1',
+        'LOCATION': 'redis:' + f'//{os.getenv("REDIS_HOST")}',
     }
 }
 
@@ -162,7 +162,7 @@ REST_FRAMEWORK = {
     ),
     'NON_FIELD_ERRORS_KEY': 'error',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
-    'PAGE_SIZE': 50
+    'PAGE_SIZE': 5
 }
 
 CSRF_TRUSTED_ORIGINS = [
