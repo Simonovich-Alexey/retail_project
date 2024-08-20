@@ -27,7 +27,7 @@ def email_activation(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()
 
 
 def password_reset(user_email, sender_email):
@@ -55,7 +55,7 @@ def password_reset(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()
 
 
 def order_confirm(user_email, sender_email):
@@ -83,4 +83,4 @@ def order_confirm(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()

@@ -112,7 +112,7 @@ class Shop(models.Model):
 class Category(models.Model):
     objects = models.Manager()
 
-    name_category = models.CharField(max_length=100, verbose_name='Название категории')
+    name_category = models.CharField(max_length=100, verbose_name='Название категории', db_index=True)
 
     shop = models.ManyToManyField(Shop, related_name='category', verbose_name='Магазин', through='ShopCategory')
 
@@ -143,7 +143,7 @@ class ShopCategory(models.Model):
 class Product(models.Model):
     objects = models.Manager()
 
-    name_product = models.CharField(max_length=100, verbose_name='Название')
+    name_product = models.CharField(max_length=100, db_index=True, verbose_name='Название')
 
     category_id = models.ForeignKey(Category, related_name='product',
                                     on_delete=models.CASCADE, verbose_name='Категория')
@@ -160,7 +160,7 @@ class Product(models.Model):
 class ProductInfo(models.Model):
     objects = models.Manager()
 
-    name = models.CharField(max_length=100, verbose_name='Название')
+    name = models.CharField(db_index=True, max_length=100, verbose_name='Название')
     external_id = models.PositiveIntegerField(verbose_name='Внешний идентификатор')
     quantity = models.IntegerField(verbose_name='Количество')
     price = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Цена')
@@ -181,7 +181,6 @@ class Parameter(models.Model):
     objects = models.Manager()
 
     name_parameter = models.CharField(max_length=100, verbose_name='Название')
-
     product = models.ManyToManyField(ProductInfo, through='ProductParameter',
                                      related_name='parameter', verbose_name='Товар')
 
@@ -210,6 +209,36 @@ class ProductParameter(models.Model):
 
 
 class Order(models.Model):
+    objects = models.Manager()
+
+    user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
+                                 verbose_name='Контакты', null=True, blank=True)
+    product_info = models.ManyToManyField(ProductInfo, related_name='order', through='OrderItem', verbose_name='Товары')
+
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.user} - {self.created_at}'
+
+    def get_total_cost(self):
+        """
+        Вычисляет общую стоимость всех товаров в заказе.
+        """
+        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
+
+    def get_order_shop(self):
+        """
+        Возвращает список магазинов, в которых были куплены товары в заказе.
+        """
+        return list(set(list(map(lambda x: x.product_info.shop.name_shop, self.items.all()))))
+
+
+class OrderItem(models.Model):
     class StateChoices(models.TextChoices):
         basket = 'basket', 'Статус корзина'
         new = 'new', 'Новый'
@@ -221,38 +250,11 @@ class Order(models.Model):
 
     objects = models.Manager()
 
-    user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
-    status = models.CharField(max_length=15, verbose_name='Статус', choices=StateChoices.choices,
-                              default=StateChoices.basket)
-    contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
-                                 verbose_name='Контакты', null=True, blank=True)
-
-    class Meta:
-        verbose_name = 'Заказ'
-        verbose_name_plural = 'Заказы'
-        ordering = ('-created_at',)
-        constraints = [
-            models.UniqueConstraint(fields=['id', 'status'], name='unique_order')
-        ]
-
-    def __str__(self):
-        return f'{self.user} - {self.status}'
-
-    def get_total_quantity(self):
-        return sum(list(map(lambda x: x.quantity, self.items.all())))
-
-    def get_total_cost(self):
-        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
-
-
-class OrderItem(models.Model):
-    objects = models.Manager()
-
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ', blank=True)
     product_info = models.ForeignKey(ProductInfo, related_name='order_items', on_delete=models.CASCADE,
                                      verbose_name='Информация о продукте')
+    status = models.CharField(max_length=15, verbose_name='Статус', choices=StateChoices.choices,
+                              default=StateChoices.basket)
     quantity = models.PositiveIntegerField(verbose_name='Количество')
 
     class Meta:

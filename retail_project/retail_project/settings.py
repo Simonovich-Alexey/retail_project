@@ -162,7 +162,7 @@ REST_FRAMEWORK = {
     ),
     'NON_FIELD_ERRORS_KEY': 'error',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
-    'PAGE_SIZE': 5
+    'PAGE_SIZE': 50
 }
 
 CSRF_TRUSTED_ORIGINS = [

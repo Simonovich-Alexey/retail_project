@@ -67,6 +67,8 @@ class LoginSerializer(serializers.Serializer):
                 if user.check_password(password):
                     attrs['user'] = user
                     return attrs
+                else:
+                    raise ValidationError({'message': 'Неверная почта или пароль'})
             raise ValidationError({'message': 'Пользователь не активирован'})
         raise ValidationError({'message': 'Неверная почта или пароль'})
 
@@ -203,71 +205,138 @@ class ProductInfoSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc', 'product']
 
 
+# class ProductInfoShopSerializer(serializers.ModelSerializer):
+#     shop = ShopSerializer(read_only=True, many=False)
+#
+#     class Meta:
+#         model = ProductInfo
+#         fields = ['id', 'name', 'shop']
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
+    # product_info = ProductInfoSerializer(read_only=True, many=False)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'quantity', 'product_info']
-
-    def validate(self, attrs: dict) -> dict:
-        quantity_product = attrs.get('product_info').quantity
-        if attrs.get('quantity') > quantity_product:
-            raise ValidationError({'message': 'Количество больше остатка'})
-        if attrs.get('quantity') <= 0:
-            raise ValidationError({'message': 'Количество должно быть больше нуля'})
-        if not attrs.get('product_info').shop.status_order:
-            raise ValidationError({'message': 'Магазин неактивен'})
-        return super().validate(attrs)
+        fields = ['id', 'quantity', 'status', 'product_info']
 
 
-class OrderItemListSerializer(OrderItemSerializer):
-    product_info = ProductInfoSerializer(many=False, read_only=True)
+# class OrderItemListSerializer(OrderItemSerializer):
+#     product_info = ProductInfoSerializer(read_only=True, many=False)
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemListSerializer(many=True, read_only=True)
     total_cost = serializers.IntegerField(source='get_total_cost')
-    contacts = ContactUserSerializer(many=False, read_only=True)
+    order_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['user', 'created_at', 'status', 'contacts', 'total_cost', 'items']
-        extra_kwargs = {'user': {'read_only': True}}
+        fields = ['id', 'contacts', 'total_cost', 'order_items']
+
+    def get_order_items(self, obj):
+        print(obj)
+        order_items = obj.items.select_related('product_info').all()
+        print(order_items)
+        grouped_items = {}
+        for item in order_items:
+            name_shop = item.product_info.shop.name_shop
+            print(name_shop)
+            if name_shop not in grouped_items:
+                grouped_items[name_shop] = []
+            print(grouped_items)
+            grouped_items[name_shop].append(OrderItemSerializer(item).data)
+        print(grouped_items)
+        return grouped_items
 
 
-class OrderItemDestroySerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = OrderItem
-        fields = ['product_info']
 
 
-class OrderRegisterSerializer(serializers.ModelSerializer):
 
-    class Meta:
-        model = Order
-        fields = ['id', 'contacts']
-
-
-class OrderConfirmSerializer(serializers.ModelSerializer):
-    key = serializers.CharField(min_length=8, max_length=64)
-
-    class Meta:
-        model = Order
-        fields = ['key']
-
-
-class SupplierOrdersSerializer(serializers.ModelSerializer):
-    contacts = ContactUserSerializer(many=False, read_only=True)
-
-    class Meta:
-        model = Order
-        fields = ['id', 'created_at', 'status', 'contacts']
-
-
-class SupplierOrdersItemsSerializer(serializers.ModelSerializer):
-    order = SupplierOrdersSerializer(many=False, read_only=True)
-
-    class Meta:
-        model = OrderItem
-        fields = ['product_info', 'quantity', 'order']
+# class OrderItemBasketSerializer(serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = OrderItem
+#         fields = ['product_info', 'quantity']
+#
+#
+# class OrderShopBasketSerializer(serializers.ModelSerializer):
+#     products = OrderItemBasketSerializer(many=True, read_only=True)
+#
+#
+# class OrderBasketSerializer(serializers.ModelSerializer):
+#     total_cost = serializers.IntegerField(source='get_total_cost')
+#     items = OrderShopBasketSerializer(many=True, read_only=True)
+#
+#     class Meta:
+#         model = Order
+#         fields = ['id', 'contacts', 'total_cost', 'items']
+#
+#
+# class OrderItemSerializer(serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = OrderItem
+#         fields = ['id', 'quantity', 'product_info']
+#
+#     def validate(self, attrs: dict) -> dict:
+#         quantity_product = attrs.get('product_info').quantity
+#         if attrs.get('quantity') > quantity_product:
+#             raise ValidationError({'message': 'Количество больше остатка'})
+#         if attrs.get('quantity') <= 0:
+#             raise ValidationError({'message': 'Количество должно быть больше нуля'})
+#         if not attrs.get('product_info').shop.status_order:
+#             raise ValidationError({'message': 'Магазин неактивен'})
+#         return super().validate(attrs)
+#
+#
+# class OrderItemListSerializer(OrderItemSerializer):
+#     product_info = ProductInfoSerializer(many=False, read_only=True)
+#
+#
+# class OrderSerializer(serializers.ModelSerializer):
+#     items = OrderItemListSerializer(many=True, read_only=True)
+#     total_cost = serializers.IntegerField(source='get_total_cost')
+#     contacts = ContactUserSerializer(many=False, read_only=True)
+#
+#     class Meta:
+#         model = Order
+#         fields = ['user', 'created_at', 'contacts', 'total_cost', 'items']
+#         extra_kwargs = {'user': {'read_only': True}}
+#
+#
+# class OrderItemDestroySerializer(serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = OrderItem
+#         fields = ['product_info']
+#
+#
+# class OrderRegisterSerializer(serializers.ModelSerializer):
+#
+#     class Meta:
+#         model = Order
+#         fields = ['id', 'contacts']
+#
+#
+# class OrderConfirmSerializer(serializers.ModelSerializer):
+#     key = serializers.CharField(min_length=8, max_length=64)
+#
+#     class Meta:
+#         model = Order
+#         fields = ['key']
+#
+#
+# class SupplierOrdersSerializer(serializers.ModelSerializer):
+#     contacts = ContactUserSerializer(many=False, read_only=True)
+#
+#     class Meta:
+#         model = Order
+#         fields = ['id', 'created_at', 'status', 'contacts']
+#
+#
+# class SupplierOrdersItemsSerializer(serializers.ModelSerializer):
+#     order = SupplierOrdersSerializer(many=False, read_only=True)
+#
+#     class Meta:
+#         model = OrderItem
+#         fields = ['product_info', 'quantity', 'order']

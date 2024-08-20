@@ -92,9 +92,8 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     inlines = [OrderItemInline]
     model = Order
-    list_display = ['id', 'user', 'created_at', 'status', 'contacts', 'total_cost']
+    list_display = ['id', 'user', 'created_at', 'contacts', 'total_cost']
     list_display_links = ['user']
-    list_filter = ['status']
     ordering = ['created_at']
 
     def total_cost(self, obj):
