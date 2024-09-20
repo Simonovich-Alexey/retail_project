@@ -3,7 +3,7 @@ import re
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Order, OrderItem
+from .models import CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Order, OrderItem, Cart, CartItem
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -187,11 +187,11 @@ class LoadingGoodsSerializer(serializers.Serializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    name_category = serializers.CharField(source='category_id.name_category')
+    name_category = serializers.CharField(source='category.name_category')
 
     class Meta:
         model = Product
-        fields = ['name_product', 'name_category', 'category_id']
+        fields = ['name_product', 'name_category', 'category']
 
 
 class ProductInfoSerializer(serializers.ModelSerializer):
@@ -201,6 +201,64 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductInfo
         fields = ['id', 'name', 'name_shop', 'quantity', 'price', 'price_rrc', 'product']
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    total_cost = serializers.IntegerField(source='get_total_cost', read_only=True)
+
+    class Meta:
+        model = CartItem
+        fields = ['quantity', 'product_info', 'total_cost']
+
+    def validate(self, attrs: dict) -> dict:
+        quantity_product = attrs.get('product_info').quantity
+        if attrs.get('quantity') > quantity_product:
+            raise ValidationError({'message': 'Количество больше остатка'})
+        if attrs.get('quantity') <= 0:
+            raise ValidationError({'message': 'Количество должно быть больше нуля'})
+        if not attrs.get('product_info').shop.status_order:
+            raise ValidationError({'message': 'Магазин неактивен'})
+        return super().validate(attrs)
+
+
+class CartItemListSerializer(CartItemSerializer):
+    product_info = ProductInfoSerializer(read_only=True, many=False)
+
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemListSerializer(many=True, read_only=True)
+    total_cost = serializers.IntegerField(source='get_total_cost', read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'total_cost', 'items']
+        extra_kwargs = {'total_cost': {'read_only': True}, 'items': {'read_only': True}}
+
+
+class CartItemDestroySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CartItem
+        fields = ['product_info']
+
+
+class CartOrderSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'contacts']
+
+
+class OrderConfirmSerializer(serializers.Serializer):
+    key = serializers.CharField(min_length=8, max_length=64)
+
+
+class SupplierOrdersSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Order
+        fields = ['id']
+# ------------------------------------------------------------
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -249,12 +307,7 @@ class OrderRegisterSerializer(serializers.ModelSerializer):
         fields = ['id', 'contacts']
 
 
-class OrderConfirmSerializer(serializers.ModelSerializer):
-    key = serializers.CharField(min_length=8, max_length=64)
 
-    class Meta:
-        model = Order
-        fields = ['key']
 
 
 class SupplierOrdersSerializer(serializers.ModelSerializer):

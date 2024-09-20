@@ -27,7 +27,7 @@ def email_activation(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()
 
 
 def password_reset(user_email, sender_email):
@@ -55,7 +55,7 @@ def password_reset(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()
 
 
 def order_confirm(user_email, sender_email):
@@ -70,7 +70,7 @@ def order_confirm(user_email, sender_email):
     print(key)
 
     # Сохранение ключа в кэше с email пользователя на 10 минут
-    cache.set(key, {'user_email': user_email}, timeout=600)
+    cache.set(key, {'user_email': user_email}, timeout=3600)
 
     # Отправка письма с кодом для подтверждения
     msg = EmailMultiAlternatives(
@@ -83,4 +83,4 @@ def order_confirm(user_email, sender_email):
         # to:
         [user_email]
     )
-    msg.send()
+    # msg.send()

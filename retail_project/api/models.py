@@ -112,7 +112,7 @@ class Shop(models.Model):
 class Category(models.Model):
     objects = models.Manager()
 
-    name_category = models.CharField(max_length=100, verbose_name='Название категории')
+    name_category = models.CharField(max_length=100, db_index=True, verbose_name='Название категории')
 
     shop = models.ManyToManyField(Shop, related_name='category', verbose_name='Магазин', through='ShopCategory')
 
@@ -143,10 +143,10 @@ class ShopCategory(models.Model):
 class Product(models.Model):
     objects = models.Manager()
 
-    name_product = models.CharField(max_length=100, verbose_name='Название')
+    name_product = models.CharField(max_length=100, db_index=True, verbose_name='Название')
 
-    category_id = models.ForeignKey(Category, related_name='product',
-                                    on_delete=models.CASCADE, verbose_name='Категория')
+    category = models.ForeignKey(Category, related_name='product',
+                                 on_delete=models.CASCADE, verbose_name='Категория')
 
     class Meta:
         verbose_name = 'Товар'
@@ -160,7 +160,7 @@ class Product(models.Model):
 class ProductInfo(models.Model):
     objects = models.Manager()
 
-    name = models.CharField(max_length=100, verbose_name='Название')
+    name = models.CharField(max_length=100, db_index=True, verbose_name='Название')
     external_id = models.PositiveIntegerField(verbose_name='Внешний идентификатор')
     quantity = models.IntegerField(verbose_name='Количество')
     price = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Цена')
@@ -180,7 +180,7 @@ class ProductInfo(models.Model):
 class Parameter(models.Model):
     objects = models.Manager()
 
-    name_parameter = models.CharField(max_length=100, verbose_name='Название')
+    name_parameter = models.CharField(max_length=100, db_index=True, verbose_name='Название')
 
     product = models.ManyToManyField(ProductInfo, through='ProductParameter',
                                      related_name='parameter', verbose_name='Товар')
@@ -209,9 +209,63 @@ class ProductParameter(models.Model):
         ordering = ('product_info',)
 
 
+class Cart(models.Model):
+    objects = models.Manager()
+
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, verbose_name='Пользователь')
+    contacts = models.ForeignKey(ContactsUser, related_name='cart', blank=True, null=True,
+                                 on_delete=models.CASCADE, verbose_name='Контакты')
+
+    class Meta:
+        verbose_name = 'Корзина'
+        verbose_name_plural = 'Корзины'
+
+    def __str__(self):
+        return f'Корзина {self.user}'
+
+    def get_total_cost(self):
+        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
+
+
+class CartItem(models.Model):
+    objects = models.Manager()
+
+    cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE, verbose_name='Корзина')
+    product_info = models.ForeignKey(ProductInfo, related_name='cart_items', on_delete=models.CASCADE,
+                                     verbose_name='Информация о продукте')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Количество')
+
+    class Meta:
+        verbose_name = 'Элемент корзины'
+        verbose_name_plural = 'Элементы корзины'
+        ordering = ('-cart',)
+
+    def __str__(self):
+        return f'{self.cart} - {self.product_info}'
+
+
 class Order(models.Model):
+    objects = models.Manager()
+
+    user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
+                                 verbose_name='Контакты', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'Заказ {self.user}'
+
+    def get_total_cost(self):
+        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
+
+
+class OrderShopStatus(models.Model):
     class StateChoices(models.TextChoices):
-        basket = 'basket', 'Статус корзина'
         new = 'new', 'Новый'
         confirmed = 'confirmed', 'Подтвержден'
         assembled = 'assembled', 'Собран'
@@ -221,30 +275,17 @@ class Order(models.Model):
 
     objects = models.Manager()
 
-    user = models.ForeignKey(CustomUser, related_name='order', on_delete=models.CASCADE, verbose_name='Пользователь')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлен')
-    status = models.CharField(max_length=15, verbose_name='Статус', choices=StateChoices.choices,
-                              default=StateChoices.basket)
-    contacts = models.ForeignKey(ContactsUser, related_name='contacts', on_delete=models.CASCADE,
-                                 verbose_name='Контакты', null=True, blank=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_shop_status')
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='order_status')
+    status = models.CharField(max_length=100, choices=StateChoices.choices, default=StateChoices.new)
 
     class Meta:
-        verbose_name = 'Заказ'
-        verbose_name_plural = 'Заказы'
-        ordering = ('-created_at',)
-        constraints = [
-            models.UniqueConstraint(fields=['id', 'status'], name='unique_order')
-        ]
+        verbose_name = 'Статус заказа'
+        verbose_name_plural = 'Статусы заказа'
+        ordering = ('-order',)
 
     def __str__(self):
-        return f'{self.user} - {self.status}'
-
-    def get_total_quantity(self):
-        return sum(list(map(lambda x: x.quantity, self.items.all())))
-
-    def get_total_cost(self):
-        return sum(list(map(lambda x: x.quantity * x.product_info.price, self.items.all())))
+        return f'{self.order} - {self.shop}'
 
 
 class OrderItem(models.Model):

@@ -17,13 +17,14 @@ from rest_framework.authtoken.models import Token
 
 from retail_project import settings
 from .models import (CustomUser, ContactsUser, Shop, Category, Product, ProductInfo, Parameter, ProductParameter,
-                     Order, OrderItem)
+                     Order, OrderItem, Cart, CartItem, OrderShopStatus)
 from .permissions import CurrentUserOrAdmin, CurrentUser
 from .serializers import ActivationSerializer, LoginSerializer, RegisterUserSerializer, \
     ResendActivationSerializer, ProfileSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, \
     ContactUserSerializer, ShopSerializer, CategorySerializer, LoadingGoodsSerializer, ProductInfoSerializer, \
     OrderSerializer, OrderItemSerializer, OrderItemDestroySerializer, OrderRegisterSerializer, OrderConfirmSerializer, \
-    SupplierOrdersItemsSerializer
+    SupplierOrdersItemsSerializer, CartItemSerializer, CartSerializer, CartItemDestroySerializer, CartOrderSerializer, \
+    SupplierOrdersSerializer
 from .email import email_activation, password_reset, order_confirm
 
 
@@ -309,7 +310,7 @@ class LoadingGoods(generics.UpdateAPIView):
 
             product, _ = Product.objects.get_or_create(
                 name_product=item['name'],
-                category_id=category
+                category=category
             )
             product_info, _ = ProductInfo.objects.update_or_create(
                 product=product,
@@ -344,9 +345,152 @@ class ProductInfoViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['shop']
-    search_fields = ['name', 'shop__name_shop', 'product__name_product', 'product__category_id__name_category']
+    search_fields = ['name', 'shop__name_shop', 'product__name_product', 'product__category__name_category']
     ordering_fields = ['shop', 'product', 'price', 'quantity']
     http_method_names = ['get']
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset().filter(quantity__gt=0, shop__status_order=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CartItemViewSet(viewsets.ModelViewSet):
+    queryset = CartItem.objects.all()
+    serializer_class = CartItemSerializer
+    permission_classes = [CurrentUser]
+
+    def get_queryset(self):
+        if self.action in ['list', 'order']:
+            return Cart.objects.all().prefetch_related('user')
+        return super().get_queryset()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CartSerializer
+        if self.action == 'destroy':
+            return CartItemDestroySerializer
+        if self.action == 'order':
+            return CartOrderSerializer
+        if self.action == 'confirm_order':
+            return OrderConfirmSerializer
+        return super().get_serializer_class()
+
+    def list(self, request, *args, **kwargs) -> Response:
+        queryset = self.get_queryset().filter(user=request.user.id)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs) -> Response:
+        """
+        Добавляет или обновляет товары в корзине пользователя
+        """
+        user = get_object_or_404(CustomUser, id=request.user.id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        cart, _ = Cart.objects.get_or_create(user=user)
+
+        quantity = serializer.validated_data.get('quantity')
+        product_info = serializer.validated_data.get('product_info')
+
+        cart_item, _ = self.queryset.update_or_create(
+            cart=cart,
+            product_info=product_info,
+            defaults={'quantity': quantity}
+        )
+
+        serializer = CartSerializer(cart)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request: requests, pk: str = 'delete', *args, **kwargs) -> Response:
+        """
+        Удаляет один элемент из корзины, если в корзине нет элементов, удаляет корзину
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        get_object_or_404(self.queryset, product_info=serializer.validated_data['product_info']).delete()
+        if not self.queryset.filter(cart__user=request.user.id).exists():
+            Cart.objects.filter(user=request.user.id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['post'], detail=False)
+    def order(self, request) -> Response:
+        """
+        Обрабатывает процесс оформления заказа, после чего отправляет письмо на почту.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_email = request.user.email
+        cart = self.get_queryset().filter(user=request.user.id)
+        if not cart.exists():
+            return Response({'message': 'Корзина пуста'}, status=status.HTTP_400_BAD_REQUEST)
+        cart.update(contacts=serializer.validated_data['contacts'])
+        order_confirm(user_email, settings.EMAIL_HOST_USER)
+        return Response({'message': 'На вашу почту отправлено письмо для подтверждения заказа'},
+                        status=status.HTTP_200_OK)
+
+    @action(methods=["post"], detail=False)
+    def confirm_order(self, request) -> Response:
+        """
+        Подтвердить заказ на основе предоставленного ключа.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        key = serializer.validated_data["key"]
+
+        redis_key = cache.get(key)
+        if not redis_key or redis_key.get('user_email') != request.user.email:
+            return Response({"message": "Неверный ключ подтверждения"}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            cart_items = self.get_queryset().select_related('cart', 'product_info').all().filter(cart__user=request.user.id)
+
+            contacts = cart_items[0].cart.contacts
+
+            # Создание заказа
+            order = Order.objects.create(user=request.user, contacts=contacts)
+
+            # Создание статусов заказа для магазинов
+            shops = {item.product_info.shop for item in cart_items}
+            order_shop_statuses = [OrderShopStatus(order=order, shop=shop) for shop in shops]
+            OrderShopStatus.objects.bulk_create(order_shop_statuses)
+
+            # Создание элементов заказа
+            order_items = [
+                OrderItem(order=order, product_info=item.product_info, quantity=item.quantity)
+                for item in cart_items
+            ]
+            OrderItem.objects.bulk_create(order_items)
+
+            # Обновление количества товаров в ProductInfo
+            product_info_updates = [
+                ProductInfo(id=item.product_info.id, quantity=item.product_info.quantity - item.quantity)
+                for item in cart_items
+            ]
+            ProductInfo.objects.bulk_update(product_info_updates, fields=['quantity'])
+
+            # Удаление элементов корзины
+            cart_items.delete()
+            cache.delete(key)
+
+            return Response({'message': 'Заказ успешно оформлен'}, status=status.HTTP_200_OK)
+
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().prefetch_related('user')
+    serializer_class = OrderSerializer
+    permission_classes = [CurrentUser]
+
+    
+class SupplierOrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().prefetch_related('user')
+    serializer_class = SupplierOrdersSerializer
+    permission_classes = [CurrentUser]
+
+# ----------------------------------------------
 
 
 class OrderItemViewSet(viewsets.ModelViewSet):

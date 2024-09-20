@@ -84,20 +84,20 @@ class ParameterAdmin(admin.ModelAdmin):
     ordering = ['name_parameter']
 
 
-class OrderItemInline(admin.TabularInline):
-    model = OrderItem
-
-
-@admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
-    inlines = [OrderItemInline]
-    model = Order
-    list_display = ['id', 'user', 'created_at', 'status', 'contacts', 'total_cost']
-    list_display_links = ['user']
-    list_filter = ['status']
-    ordering = ['created_at']
-
-    def total_cost(self, obj):
-        return obj.get_total_cost()
-
-    total_cost.short_description = 'Сумма заказа'
+# class OrderItemInline(admin.TabularInline):
+#     model = OrderItem
+#
+#
+# @admin.register(Order)
+# class OrderAdmin(admin.ModelAdmin):
+#     inlines = [OrderItemInline]
+#     model = Order
+#     list_display = ['id', 'user', 'created_at', 'status', 'contacts', 'total_cost']
+#     list_display_links = ['user']
+#     list_filter = ['status']
+#     ordering = ['created_at']
+#
+#     def total_cost(self, obj):
+#         return obj.get_total_cost()
+#
+#     total_cost.short_description = 'Сумма заказа'
